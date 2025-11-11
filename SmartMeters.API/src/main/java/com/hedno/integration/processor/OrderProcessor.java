@@ -38,8 +38,8 @@ public class OrderProcessor {
     private TimerService timerService;
     
     private OrderPackageDAO orderPackageDAO;
-    private LoadProfileInboundDAO loadProfileInboundDAO; // Existing DAO
-    private XMLBuilderService xmlBuilder; // Existing service
+    private LoadProfileInboundDAO loadProfileInboundDAO;
+    private XMLBuilderService xmlBuilder; 
     
     private int maxProfilesPerXML;
     private int packageMaxSize;

@@ -79,8 +79,6 @@ public class OrderPackageDAO {
      * Fetches the raw interval data for a specific profil_bloc_id from
      * the source meter data tables.
      *
-     * NOTE: This is based on an *assumed* schema of PROFIL_BLOC and PROFIL_BLOC_DATA.
-     * You must adapt the query (SELECT_INTERVALS_SQL) to match your real tables.
      *
      * @param profilBlocId The ID of the profile block to fetch data for.
      * @return A list of IntervalData objects.
@@ -133,16 +131,28 @@ public class OrderPackageDAO {
     }
 
     private void initializeDataSource() {
+    // Try different JNDI patterns for compatibility
+    String[] jndiNames = {
+        "java:/jdbc/LoadProfileDB",          // WildFly style
+        "java:comp/env/jdbc/LoadProfileDB",  // Standard Java EE
+        "jdbc/LoadProfileDB"                  // WebLogic style
+    };
+    
+    InitialContext ctx = null;
+    for (String jndiName : jndiNames) {
         try {
-            InitialContext ctx = new InitialContext();
-            this.dataSource = (DataSource) ctx.lookup("java:comp/env/jdbc/LoadProfileDB");
-            logger.info("OrderPackageDAO: Successfully obtained DataSource from JNDI");
+            ctx = new InitialContext();
+            this.dataSource = (DataSource) ctx.lookup(jndiName);
+            logger.info("Successfully obtained DataSource from JNDI: {}", jndiName);
+            return;
         } catch (NamingException e) {
-            logger.warn("OrderPackageDAO: JNDI DataSource not found, creating HikariCP pool: {}", e.getMessage());
-            createHikariDataSource();
+            logger.debug("JNDI lookup failed for: {}", jndiName);
         }
     }
-
+    
+    logger.warn("All JNDI lookups failed, creating HikariCP pool");
+    createHikariDataSource();
+}
     private void createHikariDataSource() {
         // This configuration should be identical to LoadProfileInboundDAO's
         HikariConfig config = new HikariConfig();

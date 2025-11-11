@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jboss-deployment-structure>
+  <deployment>
+    <exclusions>
+      <module name="jakarta.xml.bind.api"/>
+      <module name="jakarta.xml.ws.api"/>
+      <module name="org.slf4j.impl"/>
+    </exclusions>
+
+    <dependencies>
+      <module name="javax.xml.bind.api"/>
+      <module name="javax.xml.ws.api"/>
+      <module name="javax.jws.api"/>
+      <module name="javax.annotation.api"/>
+      <module name="javax.ejb.api"/>
+    </dependencies>
+  </deployment>
+</jboss-deployment-structure>

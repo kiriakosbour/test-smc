@@ -100,17 +100,28 @@ public class LoadProfileInboundDAO {
     /**
      * Initialize the data source - try JNDI first, then fallback to HikariCP
      */
-    private void initializeDataSource() {
-        // First try JNDI lookup for WebLogic datasource
+   private void initializeDataSource() {
+    String[] jndiNames = {
+        "java:/jdbc/LoadProfileDB",          // WildFly style
+        "java:comp/env/jdbc/LoadProfileDB",  // Standard Java EE
+        "jdbc/LoadProfileDB"                  // WebLogic style
+    };
+    
+    InitialContext ctx = null;
+    for (String jndiName : jndiNames) {
         try {
-            InitialContext ctx = new InitialContext();
-            this.dataSource = (DataSource) ctx.lookup("java:comp/env/jdbc/LoadProfileDB");
-            logger.info("Successfully obtained DataSource from JNDI");
+            ctx = new InitialContext();
+            this.dataSource = (DataSource) ctx.lookup(jndiName);
+            logger.info("Successfully obtained DataSource from JNDI: {}", jndiName);
+            return;
         } catch (NamingException e) {
-            logger.warn("JNDI DataSource not found, creating HikariCP pool: {}", e.getMessage());
-            createHikariDataSource();
+            logger.debug("JNDI lookup failed for: {}", jndiName);
         }
     }
+    
+    logger.warn("All JNDI lookups failed, creating HikariCP pool");
+    createHikariDataSource();
+}
     
     /**
      * Create HikariCP data source as fallback
