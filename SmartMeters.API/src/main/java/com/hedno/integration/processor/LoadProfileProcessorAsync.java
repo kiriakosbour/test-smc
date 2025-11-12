@@ -47,7 +47,7 @@ public class LoadProfileProcessorAsync {
     
     // Configuration constants
     private static final String TIMER_NAME = "LoadProfileProcessorTimer";
-    private static final long DEFAULT_PROCESSING_INTERVAL_MS = 60000; // 1 minute
+    private static final long DEFAULT_PROCESSING_INTERVAL_MS = 10000; // 1 minute
     private static final int DEFAULT_BATCH_SIZE = 10;
     private static final int DEFAULT_MAX_CONCURRENT = 5;
     private static final int DEFAULT_MAX_PROFILES_PER_MESSAGE = 10;
