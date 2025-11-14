@@ -237,47 +237,23 @@ public class XMLBuilderService {
      * @param xml The XML string to unmarshal
      * @return UtilitiesTimeSeriesERPItemBulkNotification
      */
-    public UtilitiesTimeSeriesERPItemBulkNotification unmarshalFromXml(String xml) throws JAXBException {
-        if (xml == null || xml.isBlank()) {
-            throw new JAXBException("XML input is null or empty");
-        }
-
-        String payload = xml;
-        try {
-            if (xml.contains("<soapenv:Body")) {
-                int start = xml.indexOf("<soapenv:Body");
-                start = xml.indexOf(">", start) + 1;
-                int end = xml.indexOf("</soapenv:Body>");
-                payload = xml.substring(start, end).trim();
-
-                // 🧩 FIX: add namespace if missing
-                if (!payload.contains("xmlns:glob=")) {
-                    payload = payload.replaceFirst(
-                            "<glob:UtilitiesTimeSeriesERPItemBulkNotification",
-                            "<glob:UtilitiesTimeSeriesERPItemBulkNotification xmlns:glob=\"http://sap.com/xi/SAPGlobal20/Global\""
-                    );
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to extract SOAP body, using full XML instead", e);
-        }
-
-        try (StringReader reader = new StringReader(payload)) {
-            Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
-            UtilitiesTimeSeriesERPItemBulkNotification notification =
-                    (UtilitiesTimeSeriesERPItemBulkNotification) unmarshaller.unmarshal(reader);
-
-            logger.debug("Unmarshalled XML to notification with {} profiles",
-                    notification.getNotificationMessages().size());
-
-            return notification;
-        } catch (Exception e) {
-            logger.error("Unmarshalling failed", e);
-            throw new JAXBException("Failed to unmarshal XML", e);
-        }
+    public UtilitiesTimeSeriesERPItemBulkNotification unmarshalFromXml(String xml) 
+            throws JAXBException {
+        
+        // Extract body content from SOAP envelope if present
+        String bodyContent = extractBodyContent(xml);
+        
+        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
+        StringReader reader = new StringReader(bodyContent);
+        
+        UtilitiesTimeSeriesERPItemBulkNotification notification = 
+            (UtilitiesTimeSeriesERPItemBulkNotification) unmarshaller.unmarshal(reader);
+        
+        logger.debug("Unmarshalled XML to notification with {} profiles", 
+            notification.getNotificationMessages().size());
+        
+        return notification;
     }
-
-
     
     /**
      * Extract the message UUID from XML
