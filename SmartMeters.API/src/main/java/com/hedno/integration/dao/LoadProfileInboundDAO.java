@@ -104,7 +104,7 @@ public class LoadProfileInboundDAO {
         // First try JNDI lookup for WebLogic datasource
         try {
             InitialContext ctx = new InitialContext();
-            this.dataSource = (DataSource) ctx.lookup("java:comp/env/jdbc/LoadProfileDB");
+            this.dataSource = (DataSource) ctx.lookup("jdbc/artemis_smc"); //TODO read datasource from application.properties
             logger.info("Successfully obtained DataSource from JNDI");
         } catch (NamingException e) {
             logger.warn("JNDI DataSource not found, creating HikariCP pool: {}", e.getMessage());

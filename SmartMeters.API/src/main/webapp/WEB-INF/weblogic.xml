@@ -12,7 +12,10 @@
             <!-- Use application's own libraries for these packages -->
             <package-name>javax.xml.bind.*</package-name>
             <package-name>javax.xml.ws.*</package-name>
+	        <package-name>javax.xml.soap.*</package-name>
             <package-name>com.sun.xml.ws.*</package-name>
+	        <package-name>com.sun.xml.bind.*</package-name>
+	        <package-name>com.sun.xml.messaging.saaj.*</package-name>            
             <package-name>org.slf4j.*</package-name>
             <package-name>ch.qos.logback.*</package-name>
         </prefer-application-packages>
@@ -25,38 +28,32 @@
         <!-- Session settings -->
         <session-monitoring-enabled>true</session-monitoring-enabled>
         <save-sessions-enabled>false</save-sessions-enabled>
-        
-        <!-- JSP settings -->
-        <jsp-descriptor>
-            <keepgenerated>true</keepgenerated>
-            <debug>false</debug>
-            <verbose>false</verbose>
-            <page-check-seconds>-1</page-check-seconds>
-        </jsp-descriptor>
-        
-        <!-- Work Manager for async processing -->
-        <work-manager>
-            <name>LoadProfileWorkManager</name>
-            <min-threads-constraint>
-                <name>MinThreads</name>
-                <count>5</count>
-            </min-threads-constraint>
-            <max-threads-constraint>
-                <name>MaxThreads</name>
-                <count>20</count>
-            </max-threads-constraint>
-            <capacity>
-                <name>Capacity</name>
-                <count>100</count>
-            </capacity>
-        </work-manager>
     </container-descriptor>
 
-    <!-- JNDI mappings for resources -->
-    <resource-description>
-        <res-ref-name>jdbc/LoadProfileDB</res-ref-name>
-        <jndi-name>jdbc/LoadProfileDB</jndi-name>
-    </resource-description>
+	<!-- JSP settings -->
+	<jsp-descriptor>
+		<keepgenerated>true</keepgenerated>
+		<debug>false</debug>
+		<verbose>false</verbose>
+		<page-check-seconds>-1</page-check-seconds>
+	</jsp-descriptor>
+
+	<!-- Work Manager for async processing -->
+	<work-manager>
+		<name>LoadProfileWorkManager</name>
+		<min-threads-constraint>
+			<name>MinThreads</name>
+			<count>5</count>
+		</min-threads-constraint>
+		<max-threads-constraint>
+			<name>MaxThreads</name>
+			<count>20</count>
+		</max-threads-constraint>
+		<capacity>
+			<name>Capacity</name>
+			<count>100</count>
+		</capacity>
+	</work-manager>
 
     <!-- Security role mappings -->
     <security-role-assignment>
