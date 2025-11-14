@@ -19,6 +19,7 @@ public class OrderItem {
     private String podId;
     private ItemStatus status;
     private Timestamp createdTimestamp;
+    private String rawXml;
 
     /**
      * Enum for item processing states, matching the database constraint.
@@ -111,6 +112,14 @@ public class OrderItem {
 
     public void setCreatedTimestamp(Timestamp createdTimestamp) {
         this.createdTimestamp = createdTimestamp;
+    }
+
+    public String getRawXml() {
+        return rawXml;
+    }
+
+    public void setRawXml(String rawXml) {
+        this.rawXml = rawXml;
     }
 
     @Override

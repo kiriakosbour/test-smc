@@ -4,7 +4,7 @@ import com.hedno.integration.dao.OrderPackageDAO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
+import javax.annotation.PostConstruct;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -26,8 +26,17 @@ public class LoadProfileReceiverEndpoint {
 
     private static final Logger log = LoggerFactory.getLogger(LoadProfileReceiverEndpoint.class);
 
-    @Inject
+    // ✅ DON'T USE @Inject - Create manually instead
     private OrderPackageDAO orderPackageDAO;
+
+    /**
+     * Initialize DAO after construction
+     */
+    @PostConstruct
+    public void init() {
+        this.orderPackageDAO = new OrderPackageDAO();
+        log.info("LoadProfileReceiverEndpoint initialized with OrderPackageDAO");
+    }
 
     /**
      * Simple health-check.
@@ -84,7 +93,7 @@ public class LoadProfileReceiverEndpoint {
     // ---------- Helpers ----------
 
     private ProfilBlocDto parseProfilBlocXml(String xmlBody) throws Exception {
-        // REFACTOR: Use try-with-resources for the InputStream
+        // Use try-with-resources for the InputStream
         try (InputStream stream = new ByteArrayInputStream(xmlBody.getBytes(StandardCharsets.UTF_8))) {
             Document doc = DocumentBuilderFactory.newInstance()
                     .newDocumentBuilder()
