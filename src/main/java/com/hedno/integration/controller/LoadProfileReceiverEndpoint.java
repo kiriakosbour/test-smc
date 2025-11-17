@@ -1,6 +1,8 @@
 package com.hedno.integration.controller;
 
 import com.hedno.integration.dao.OrderPackageDAO;
+import com.hedno.integration.service.SimpleXMLBuilderService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,6 +92,49 @@ public class LoadProfileReceiverEndpoint {
         }
     }
 
+    @POST
+@Path("/receive")
+@Consumes(MediaType.TEXT_XML)
+public Response receiveLoadProfile(String xmlBody) {
+    try {
+        // Validate XML
+        if (xmlBody == null || xmlBody.isEmpty()) {
+            return Response.status(400)
+                .entity("XML body is empty")
+                .build();
+        }
+        
+        // Parse and validate
+        SimpleXMLBuilderService xmlBuilder = new SimpleXMLBuilderService();
+        if (!xmlBuilder.validateXml(xmlBody)) {
+            return Response.status(422)
+                .entity("Invalid XML format")
+                .build();
+        }
+        
+        // Extract info for logging
+        String messageId = xmlBuilder.extractMessageId(xmlBody);
+        int profileCount = xmlBuilder.countProfiles(xmlBody);
+        
+        // Log headers only (not full XML)
+        logger.info("Received Load Profile - ID: {}, Profiles: {}", 
+            messageId, profileCount);
+        
+        // Process the data
+        processLoadProfile(xmlBody);
+        
+        // Return success
+        return Response.status(200)
+            .entity("Load profile received successfully")
+            .build();
+            
+    } catch (Exception e) {
+        logger.error("Internal error processing load profile", e);
+        return Response.status(500)
+            .entity("Internal server error")
+            .build();
+    }
+}
     // ---------- Helpers ----------
 
     private ProfilBlocDto parseProfilBlocXml(String xmlBody) throws Exception {

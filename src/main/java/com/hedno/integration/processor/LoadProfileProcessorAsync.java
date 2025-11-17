@@ -3,13 +3,16 @@ package com.hedno.integration.processor;
 import com.hedno.integration.dao.LoadProfileInboundDAO;
 import com.hedno.integration.entity.LoadProfileInbound;
 import com.hedno.integration.entity.LoadProfileInbound.ProcessingStatus;
+import com.hedno.integration.service.SimpleXMLBuilderService;
 import com.hedno.integration.service.SoapClientServiceAsync;
 import com.hedno.integration.service.SoapClientServiceAsync.SoapResponse;
 import com.hedno.integration.service.SoapClientServiceAsync.SoapResponseCallback;
+import com.hedno.integration.service.SoapClientServiceUpdated;
 import com.hedno.integration.service.XMLBuilderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import com.hedno.integration.service.SimpleXMLBuilderService;
+import com.hedno.integration.service.SoapClientServiceUpdated;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
@@ -54,8 +57,7 @@ public class LoadProfileProcessorAsync {
     private static final int DEFAULT_MAX_RETRIES = 5;
     // Services
     private LoadProfileInboundDAO dao;
-    private XMLBuilderService xmlBuilder;
-    private SoapClientServiceAsync soapClient;
+
 
     // Configuration
     private long processingIntervalMs;
@@ -96,55 +98,22 @@ public class LoadProfileProcessorAsync {
             this.httpStatusCode = -1;
         }
     }
-
+private SimpleXMLBuilderService xmlBuilder;
+private SoapClientServiceUpdated soapClient;
     /**
      * Initialize the processor on startup
      */
-    @PostConstruct
-    public void initialize() {
-        logger.info("Initializing Async LoadProfileProcessor...");
-
-        try {
-            // Load configuration
-            loadConfiguration();
-
-            // Initialize DAO
-            dao = new LoadProfileInboundDAO();
-
-            // Initialize XML Builder
-            xmlBuilder = new XMLBuilderService(maxProfilesPerMessage);
-
-            // Initialize Async SOAP Client
-            String host = System.getProperty("sap.endpoint.host", "localhost");
-            int port = Integer.parseInt(System.getProperty("sap.endpoint.port", "56700"));
-            String path = System.getProperty("sap.endpoint.path",
-                    "/XISOAPAdapter/MessageServlet");
-            String username = System.getProperty("sap.username");
-            String password = System.getProperty("sap.password");
-            boolean useHttps = Boolean.parseBoolean(
-                    System.getProperty("sap.use.https", "true"));
-
-            soapClient = new SoapClientServiceAsync(host, port, path, username, password, useHttps);
-
-            // Test SAP connection
-            /*
-             * if (soapClient.testConnection()) {
-             * logger.info("SAP endpoint connection test successful");
-             * } else {
-             * logger.
-             * warn("SAP endpoint connection test failed - will retry during processing");
-             * }
-             */
-            // Start timer for periodic processing
-            startProcessingTimer();
-
-            logger.info("Async LoadProfileProcessor initialized successfully");
-
-        } catch (Exception e) {
-            logger.error("Failed to initialize LoadProfileProcessor", e);
-            throw new RuntimeException("Initialization failed", e);
-        }
-    }
+@PostConstruct
+public void initialize() {
+    // Initialize with new services
+    xmlBuilder = new SimpleXMLBuilderService();
+    
+    String endpointUrl = System.getProperty("endpoint.url");
+    String username = System.getProperty("endpoint.username", "");
+    String password = System.getProperty("endpoint.password", "");
+    
+    soapClient = new SoapClientServiceUpdated(endpointUrl, username, password);
+}
 
     /**
      * Cleanup on shutdown
