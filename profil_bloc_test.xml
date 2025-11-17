@@ -1,0 +1,19 @@
+<ProfilBlocMessage>
+  <Header>
+    <MessageId>PB_001</MessageId>
+    <Sender>Deddie</Sender>
+    <Timestamp>2025-11-12T15:45:00</Timestamp>
+  </Header>
+  <Profiles>
+    <Profile>
+      <ProfilBlocId>PB_001</ProfilBlocId>
+      <PodId>GR1234567890</PodId>
+      <ObisCode>1-0:1.8.0</ObisCode>
+      <DataType>ENERGY</DataType>
+      <ChannelId>CHAN_RELEVANT_001</ChannelId>
+      <Start>2025-11-10T00:00:00</Start>
+      <End>2025-11-10T23:59:00</End>
+      <Value>189.3</Value>
+    </Profile>
+  </Profiles>
+</ProfilBlocMessage>

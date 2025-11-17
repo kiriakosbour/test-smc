@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jboss-deployment-structure>
+  <deployment>
+    <exclusions>
+      <!-- Exclude Jakarta EE 9+ APIs (we're using Java EE 8) -->
+      <module name="jakarta.xml.bind.api"/>
+      <module name="jakarta.xml.ws.api"/>
+      <module name="org.glassfish.jaxb"/>
+    </exclusions>
+
+    <dependencies>
+      <!-- Include Java EE 8 APIs -->
+      <module name="javax.xml.bind.api"/>
+      <module name="javax.xml.ws.api"/>
+      <module name="javax.jws.api"/>
+      <module name="javax.annotation.api"/>
+      <module name="javax.ejb.api"/>
+      
+      <!-- CRITICAL: Add JAXB implementation -->
+      <module name="com.sun.xml.bind" services="import"/>
+    </dependencies>
+  </deployment>
+</jboss-deployment-structure>
