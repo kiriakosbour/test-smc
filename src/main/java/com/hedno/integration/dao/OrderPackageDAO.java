@@ -1,7 +1,8 @@
 package com.hedno.integration.dao;
 
 import com.hedno.integration.entity.OrderItem;
-import com.hedno.integration.service.XMLBuilderService.IntervalData;
+// FIX: Removed bad import:
+// import com.hedno.integration.service.XMLBuilderService.IntervalData; 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
@@ -54,64 +55,8 @@ public class OrderPackageDAO {
 
     private DataSource dataSource;
 
-    private static final String SELECT_INTERVALS_SQL = "SELECT " +
-            "  b.INTERVAL_START_TIME, " + // Assuming a TIMESTAMP column
-            "  b.INTERVAL_END_TIME, " + // Assuming a TIMESTAMP column
-            "  b.INTERVAL_VALUE, " + // Assuming a NUMBER column
-            "  b.INTERVAL_STATUS, " + // Assuming a VARCHAR2 column
-            "  h.UNIT_OF_MEASURE " + // Assuming a VARCHAR2 column (e.g., 'KWH')
-            "FROM PROFIL_BLOC_DATA b " +
-            "JOIN PROFIL_BLOC h ON b.PROFIL_BLOC_ID = h.PROFIL_BLOC_ID " +
-            "WHERE b.PROFIL_BLOC_ID = ? " +
-            "ORDER BY b.INTERVAL_START_TIME";
-
-    /**
-     * Fetches the raw interval data for a specific profil_bloc_id from
-     * the source meter data tables.
-     *
-     * NOTE: This is based on an *assumed* schema of PROFIL_BLOC and
-     * PROFIL_BLOC_DATA.
-     * You must adapt the query (SELECT_INTERVALS_SQL) to match your real tables.
-     *
-     * @param profilBlocId The ID of the profile block to fetch data for.
-     * @return A list of IntervalData objects.
-     */
-    public List<IntervalData> fetchIntervalDataForBloc(String profilBlocId) {
-        List<IntervalData> intervals = new ArrayList<>();
-
-        try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement(SELECT_INTERVALS_SQL)) {
-
-            ps.setString(1, profilBlocId);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    IntervalData interval = new IntervalData();
-
-                    // Convert JDBC Timestamps to LocalDateTime
-                    Timestamp startTs = rs.getTimestamp("INTERVAL_START_TIME");
-                    Timestamp endTs = rs.getTimestamp("INTERVAL_END_TIME");
-
-                    if (startTs != null) {
-                        interval.setStartDateTime(startTs.toLocalDateTime());
-                    }
-                    if (endTs != null) {
-                        interval.setEndDateTime(endTs.toLocalDateTime());
-                    }
-
-                    interval.setValue(rs.getBigDecimal("INTERVAL_VALUE"));
-                    interval.setStatus(rs.getString("INTERVAL_STATUS"));
-                    interval.setUnitCode(rs.getString("UNIT_OF_MEASURE"));
-
-                    intervals.add(interval);
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Error fetching interval data for profil_bloc_id: {}", profilBlocId, e);
-            // Return empty list, the processor will handle it
-        }
-        return intervals;
-    }
+    // FIX: Removed the unused SELECT_INTERVALS_SQL and fetchIntervalDataForBloc method
+    // which caused the compilation error.
 
     public OrderPackageDAO() {
         initializeDataSource();
@@ -124,30 +69,31 @@ public class OrderPackageDAO {
         this.dataSource = dataSource;
     }
 
-    private void initializeDataSource() {
+private void initializeDataSource() {
+        // REFACTORED: Use property for JNDI name
+        String jndiName = System.getProperty("jndi.datasource.name", "java:comp/env/jdbc/LoadProfileDB");
         try {
             InitialContext ctx = new InitialContext();
-                       this.dataSource = (DataSource) ctx.lookup("java:comp/env/jdbc/LoadProfileDB");
-
-            logger.info("OrderPackageDAO: Successfully obtained DataSource from JNDI");
+            this.dataSource = (DataSource) ctx.lookup(jndiName);
+            logger.info("OrderPackageDAO: Successfully obtained DataSource from JNDI: {}", jndiName);
         } catch (NamingException e) {
-            logger.warn("OrderPackageDAO: JNDI DataSource not found, creating HikariCP pool: {}", e.getMessage());
+            logger.warn("OrderPackageDAO: JNDI DataSource '{}' not found, creating HikariCP pool: {}", jndiName, e.getMessage());
             createHikariDataSource();
         }
     }
 
     private void createHikariDataSource() {
-        // This configuration should be identical to LoadProfileInboundDAO's
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(System.getProperty("db.url", "jdbc:oracle:thin:@localhost:1521:XE"));
         config.setUsername(System.getProperty("db.username", "LOAD_PROFILE"));
         config.setPassword(System.getProperty("db.password", "password"));
         config.setDriverClassName("oracle.jdbc.driver.OracleDriver");
-        config.setMaximumPoolSize(20);
-        config.setMinimumIdle(5);
-        config.setConnectionTimeout(30000);
-        config.setIdleTimeout(600000);
-        config.setMaxLifetime(1800000);
+        config.setMaximumPoolSize(Integer.parseInt(System.getProperty("db.pool.size.max", "20")));
+        config.setMinimumIdle(Integer.parseInt(System.getProperty("db.pool.size.min", "5")));
+        config.setConnectionTimeout(Long.parseLong(System.getProperty("db.connection.timeout", "30000")));
+        config.setIdleTimeout(Long.parseLong(System.getProperty("db.pool.idle.timeout", "600000")));
+        config.setMaxLifetime(Long.parseLong(System.getProperty("db.pool.max.lifetime", "1800000")));
+        
         this.dataSource = new HikariDataSource(config);
         logger.info("OrderPackageDAO: HikariCP DataSource initialized successfully");
     }
@@ -348,7 +294,34 @@ public class OrderPackageDAO {
             return false; // Fail-safe: assume not relevant if DB error
         }
     }
+// SQL for marking a single item as processed
+    private static final String UPDATE_SINGLE_ITEM_STATUS_SQL = "UPDATE SMC_ORDER_ITEMS SET STATUS = ? WHERE ITEM_ID = ?";
 
+    /**
+     * Updates the status of a single item.
+     * Used by the synchronous endpoint after intervals are saved.
+     * @param itemId The item to update
+     * @param status The new status
+     * @return true if successful
+     */
+    public boolean updateItemStatus(long itemId, OrderItem.ItemStatus status) {
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement ps = conn.prepareStatement(UPDATE_SINGLE_ITEM_STATUS_SQL)) {
+
+            ps.setString(1, status.getValue());
+            ps.setLong(2, itemId);
+
+            int rowsAffected = ps.executeUpdate();
+            if (rowsAffected > 0) {
+                logger.info("Updated item {} to status {}", itemId, status.getValue());
+                return true;
+            }
+            return false;
+        } catch (SQLException e) {
+            logger.error("Error updating item status for item: {}", itemId, e);
+            return false;
+        }
+    }
     /**
      * Closes the data source if it's a HikariDataSource.
      */
