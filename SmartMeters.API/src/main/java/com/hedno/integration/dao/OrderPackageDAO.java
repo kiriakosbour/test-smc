@@ -1,7 +1,8 @@
 package com.hedno.integration.dao;
 
 import com.hedno.integration.entity.OrderItem;
-import com.hedno.integration.service.XMLBuilderService.IntervalData;
+// FIX: Removed bad import:
+// import com.hedno.integration.service.XMLBuilderService.IntervalData; 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
@@ -54,64 +55,8 @@ public class OrderPackageDAO {
 
     private DataSource dataSource;
 
-    private static final String SELECT_INTERVALS_SQL = "SELECT " +
-            "  b.INTERVAL_START_TIME, " + // Assuming a TIMESTAMP column
-            "  b.INTERVAL_END_TIME, " + // Assuming a TIMESTAMP column
-            "  b.INTERVAL_VALUE, " + // Assuming a NUMBER column
-            "  b.INTERVAL_STATUS, " + // Assuming a VARCHAR2 column
-            "  h.UNIT_OF_MEASURE " + // Assuming a VARCHAR2 column (e.g., 'KWH')
-            "FROM PROFIL_BLOC_DATA b " +
-            "JOIN PROFIL_BLOC h ON b.PROFIL_BLOC_ID = h.PROFIL_BLOC_ID " +
-            "WHERE b.PROFIL_BLOC_ID = ? " +
-            "ORDER BY b.INTERVAL_START_TIME";
-
-    /**
-     * Fetches the raw interval data for a specific profil_bloc_id from
-     * the source meter data tables.
-     *
-     * NOTE: This is based on an *assumed* schema of PROFIL_BLOC and
-     * PROFIL_BLOC_DATA.
-     * You must adapt the query (SELECT_INTERVALS_SQL) to match your real tables.
-     *
-     * @param profilBlocId The ID of the profile block to fetch data for.
-     * @return A list of IntervalData objects.
-     */
-    public List<IntervalData> fetchIntervalDataForBloc(String profilBlocId) {
-        List<IntervalData> intervals = new ArrayList<>();
-
-        try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement(SELECT_INTERVALS_SQL)) {
-
-            ps.setString(1, profilBlocId);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    IntervalData interval = new IntervalData();
-
-                    // Convert JDBC Timestamps to LocalDateTime
-                    Timestamp startTs = rs.getTimestamp("INTERVAL_START_TIME");
-                    Timestamp endTs = rs.getTimestamp("INTERVAL_END_TIME");
-
-                    if (startTs != null) {
-                        interval.setStartDateTime(startTs.toLocalDateTime());
-                    }
-                    if (endTs != null) {
-                        interval.setEndDateTime(endTs.toLocalDateTime());
-                    }
-
-                    interval.setValue(rs.getBigDecimal("INTERVAL_VALUE"));
-                    interval.setStatus(rs.getString("INTERVAL_STATUS"));
-                    interval.setUnitCode(rs.getString("UNIT_OF_MEASURE"));
-
-                    intervals.add(interval);
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Error fetching interval data for profil_bloc_id: {}", profilBlocId, e);
-            // Return empty list, the processor will handle it
-        }
-        return intervals;
-    }
+    // FIX: Removed the unused SELECT_INTERVALS_SQL and fetchIntervalDataForBloc method
+    // which caused the compilation error.
 
     public OrderPackageDAO() {
         initializeDataSource();
@@ -127,7 +72,8 @@ public class OrderPackageDAO {
     private void initializeDataSource() {
         try {
             InitialContext ctx = new InitialContext();
-            this.dataSource = (DataSource) ctx.lookup("jdbc/artemis_smc"); //TODO read datasource from application.properties
+                       this.dataSource = (DataSource) ctx.lookup("java:comp/env/jdbc/LoadProfileDB");
+
             logger.info("OrderPackageDAO: Successfully obtained DataSource from JNDI");
         } catch (NamingException e) {
             logger.warn("OrderPackageDAO: JNDI DataSource not found, creating HikariCP pool: {}", e.getMessage());
@@ -347,7 +293,35 @@ public class OrderPackageDAO {
             return false; // Fail-safe: assume not relevant if DB error
         }
     }
+// SQL for marking a single item as processed
+    private static final String UPDATE_SINGLE_ITEM_STATUS_SQL = "UPDATE SMC_ORDER_ITEMS SET STATUS = ? WHERE ITEM_ID = ?";
 
+    /**
+     * Updates the status of a single item.
+     * Used by the synchronous endpoint after intervals are saved.
+     *
+     * @param itemId The item to update
+     * @param status The new status
+     * @return true if successful
+     */
+    public boolean updateItemStatus(long itemId, OrderItem.ItemStatus status) {
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement ps = conn.prepareStatement(UPDATE_SINGLE_ITEM_STATUS_SQL)) {
+
+            ps.setString(1, status.getValue());
+            ps.setLong(2, itemId);
+
+            int rowsAffected = ps.executeUpdate();
+            if (rowsAffected > 0) {
+                logger.info("Updated item {} to status {}", itemId, status.getValue());
+                return true;
+            }
+            return false;
+        } catch (SQLException e) {
+            logger.error("Error updating item status for item: {}", itemId, e);
+            return false;
+        }
+    }
     /**
      * Closes the data source if it's a HikariDataSource.
      */

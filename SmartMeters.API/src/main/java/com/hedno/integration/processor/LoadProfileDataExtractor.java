@@ -1,7 +1,5 @@
 package com.hedno.integration.processor;
 
-import com.hedno.integration.service.XMLBuilderService.LoadProfileData;
-import com.hedno.integration.service.XMLBuilderService.IntervalData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
