@@ -38,24 +38,29 @@ public class IntervalDataDAO {
     /**
      * Initializes the data source, falling back to HikariCP if JNDI fails.
      */
-    private void initializeDataSource() {
+private void initializeDataSource() {
+        String jndiName = System.getProperty("jndi.datasource.name", "java:comp/env/jdbc/LoadProfileDB");
         try {
             InitialContext ctx = new InitialContext();
-            this.dataSource = (DataSource) ctx.lookup("java:comp/env/jdbc/LoadProfileDB");
-            logger.info("IntervalDataDAO: Successfully obtained DataSource from JNDI");
+            this.dataSource = (DataSource) ctx.lookup(jndiName);
+            logger.info("IntervalDataDAO: Successfully obtained DataSource from JNDI: {}", jndiName);
         } catch (NamingException e) {
-            logger.warn("IntervalDataDAO: JNDI DataSource not found, creating HikariCP pool", e);
+            logger.warn("IntervalDataDAO: JNDI DataSource '{}' not found, creating HikariCP pool", jndiName, e);
             createHikariDataSource();
         }
     }
 
-    private void createHikariDataSource() {
+private void createHikariDataSource() {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(System.getProperty("db.url", "jdbc:oracle:thin:@localhost:1521:XE"));
         config.setUsername(System.getProperty("db.username", "LOAD_PROFILE"));
         config.setPassword(System.getProperty("db.password", "password"));
         config.setDriverClassName("oracle.jdbc.driver.OracleDriver");
-        config.setMaximumPoolSize(20);
+        
+        config.setMaximumPoolSize(Integer.parseInt(System.getProperty("db.pool.size.max", "20")));
+        config.setMinimumIdle(Integer.parseInt(System.getProperty("db.pool.size.min", "5")));
+        config.setConnectionTimeout(Long.parseLong(System.getProperty("db.connection.timeout", "30000")));
+        
         this.dataSource = new HikariDataSource(config);
     }
 

@@ -70,29 +70,30 @@ public class OrderPackageDAO {
     }
 
     private void initializeDataSource() {
+        // REFACTORED: Use property for JNDI name
+        String jndiName = System.getProperty("jndi.datasource.name", "java:comp/env/jdbc/LoadProfileDB");
         try {
             InitialContext ctx = new InitialContext();
-                       this.dataSource = (DataSource) ctx.lookup("java:comp/env/jdbc/LoadProfileDB");
-
-            logger.info("OrderPackageDAO: Successfully obtained DataSource from JNDI");
+            this.dataSource = (DataSource) ctx.lookup(jndiName);
+            logger.info("OrderPackageDAO: Successfully obtained DataSource from JNDI: {}", jndiName);
         } catch (NamingException e) {
-            logger.warn("OrderPackageDAO: JNDI DataSource not found, creating HikariCP pool: {}", e.getMessage());
+            logger.warn("OrderPackageDAO: JNDI DataSource '{}' not found, creating HikariCP pool: {}", jndiName, e.getMessage());
             createHikariDataSource();
         }
     }
 
     private void createHikariDataSource() {
-        // This configuration should be identical to LoadProfileInboundDAO's
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(System.getProperty("db.url", "jdbc:oracle:thin:@localhost:1521:XE"));
         config.setUsername(System.getProperty("db.username", "LOAD_PROFILE"));
         config.setPassword(System.getProperty("db.password", "password"));
         config.setDriverClassName("oracle.jdbc.driver.OracleDriver");
-        config.setMaximumPoolSize(20);
-        config.setMinimumIdle(5);
-        config.setConnectionTimeout(30000);
-        config.setIdleTimeout(600000);
-        config.setMaxLifetime(1800000);
+        config.setMaximumPoolSize(Integer.parseInt(System.getProperty("db.pool.size.max", "20")));
+        config.setMinimumIdle(Integer.parseInt(System.getProperty("db.pool.size.min", "5")));
+        config.setConnectionTimeout(Long.parseLong(System.getProperty("db.connection.timeout", "30000")));
+        config.setIdleTimeout(Long.parseLong(System.getProperty("db.pool.idle.timeout", "600000")));
+        config.setMaxLifetime(Long.parseLong(System.getProperty("db.pool.max.lifetime", "1800000")));
+        
         this.dataSource = new HikariDataSource(config);
         logger.info("OrderPackageDAO: HikariCP DataSource initialized successfully");
     }
@@ -299,7 +300,6 @@ public class OrderPackageDAO {
     /**
      * Updates the status of a single item.
      * Used by the synchronous endpoint after intervals are saved.
-     *
      * @param itemId The item to update
      * @param status The new status
      * @return true if successful
@@ -322,6 +322,7 @@ public class OrderPackageDAO {
             return false;
         }
     }
+
     /**
      * Closes the data source if it's a HikariDataSource.
      */

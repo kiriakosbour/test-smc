@@ -160,7 +160,11 @@
             <artifactId>ojdbc8</artifactId>
             <version>${oracle.jdbc.version}</version>
         </dependency>
-        
+        <dependency>
+            <groupId>com.oracle.database.nls</groupId>
+            <artifactId>orai18n</artifactId>
+            <version>${oracle.jdbc.version}</version>
+        </dependency>
         <!-- Connection Pool -->
         <dependency>
             <groupId>com.zaxxer</groupId>
