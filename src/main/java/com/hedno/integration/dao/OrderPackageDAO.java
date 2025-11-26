@@ -69,7 +69,7 @@ public class OrderPackageDAO {
         this.dataSource = dataSource;
     }
 
-private void initializeDataSource() {
+    private void initializeDataSource() {
         // REFACTORED: Use property for JNDI name
         String jndiName = System.getProperty("jndi.datasource.name", "java:comp/env/jdbc/LoadProfileDB");
         try {
@@ -322,6 +322,7 @@ private void initializeDataSource() {
             return false;
         }
     }
+
     /**
      * Closes the data source if it's a HikariDataSource.
      */

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<weblogic-web-app xmlns="http://xmlns.oracle.com/weblogic/weblogic-web-app"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://xmlns.oracle.com/weblogic/weblogic-web-app 
+                  http://xmlns.oracle.com/weblogic/weblogic-web-app/1.9/weblogic-web-app.xsd">
+
+    <context-root>/load-profile-api</context-root>
+
+    <!-- WebLogic Container Settings -->
+    <container-descriptor>
+        <prefer-application-packages>
+            <!-- Use application's own libraries for these packages -->
+            <package-name>javax.xml.bind.*</package-name>
+            <package-name>javax.xml.ws.*</package-name>
+	        <package-name>javax.xml.soap.*</package-name>
+            <package-name>com.sun.xml.ws.*</package-name>
+	        <package-name>com.sun.xml.bind.*</package-name>
+	        <package-name>com.sun.xml.messaging.saaj.*</package-name>            
+            <package-name>org.slf4j.*</package-name>
+            <package-name>ch.qos.logback.*</package-name>
+        </prefer-application-packages>
+        
+        <prefer-application-resources>
+            <resource-name>META-INF/services/javax.xml.bind.JAXBContext</resource-name>
+            <resource-name>META-INF/services/javax.xml.ws.spi.Provider</resource-name>
+        </prefer-application-resources>
+        
+        <!-- Session settings -->
+        <session-monitoring-enabled>true</session-monitoring-enabled>
+        <save-sessions-enabled>false</save-sessions-enabled>
+    </container-descriptor>
+
+	<!-- JSP settings -->
+	<jsp-descriptor>
+		<keepgenerated>true</keepgenerated>
+		<debug>false</debug>
+		<verbose>false</verbose>
+		<page-check-seconds>-1</page-check-seconds>
+	</jsp-descriptor>
+
+	<!-- Work Manager for async processing -->
+	<work-manager>
+		<name>LoadProfileWorkManager</name>
+		<min-threads-constraint>
+			<name>MinThreads</name>
+			<count>5</count>
+		</min-threads-constraint>
+		<max-threads-constraint>
+			<name>MaxThreads</name>
+			<count>20</count>
+		</max-threads-constraint>
+		<capacity>
+			<name>Capacity</name>
+			<count>100</count>
+		</capacity>
+	</work-manager>
+
+    <!-- Security role mappings -->
+    <security-role-assignment>
+        <role-name>admin</role-name>
+        <principal-name>load-profile-admins</principal-name>
+    </security-role-assignment>
+    
+    <security-role-assignment>
+        <role-name>monitor</role-name>
+        <principal-name>load-profile-monitors</principal-name>
+    </security-role-assignment>
+
+    <!-- Library references (if using shared libraries) -->
+    <!--
+    <library-ref>
+        <library-name>oracle-jdbc</library-name>
+        <specification-version>19.8</specification-version>
+        <implementation-version>19.8.0.0</implementation-version>
+    </library-ref>
+    -->
+
+    <!-- Logging configuration -->
+    <logging>
+        <log-filename>logs/load-profile-api.log</log-filename>
+        <rotation-type>byTime</rotation-type>
+        <number-of-files-limited>true</number-of-files-limited>
+        <file-count>10</file-count>
+        <rotate-log-on-startup>false</rotate-log-on-startup>
+    </logging>
+
+    <!-- Character encoding -->
+    <charset-params>
+        <input-charset>
+            <resource-path>/*</resource-path>
+            <java-charset-name>UTF-8</java-charset-name>
+        </input-charset>
+    </charset-params>
+
+    <!-- Virtual directory mappings (if needed for static resources) -->
+    <!--
+    <virtual-directory-mapping>
+        <local-path>/opt/load-profile/config</local-path>
+        <url-pattern>/config/*</url-pattern>
+    </virtual-directory-mapping>
+    -->
+
+    <!-- Fast swap for development (disable in production) -->
+    <fast-swap>
+        <enabled>false</enabled>
+    </fast-swap>
+
+    <!-- Connection filter (optional security) -->
+    <!--
+    <connection-filter>com.hedno.integration.security.LoadProfileConnectionFilter</connection-filter>
+    <connection-filter-params>
+        <param-name>allow</param-name>
+        <param-value>10.0.0.0/8,172.16.0.0/12,192.168.0.0/16</param-value>
+    </connection-filter-params>
+    -->
+
+</weblogic-web-app>
