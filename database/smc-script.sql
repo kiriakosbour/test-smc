@@ -1,13 +1,9 @@
 -- =============================================================================
--- Load Profile Push API - COMPLETE & ROBUST Database Setup Script (v4.1)
+-- Load Profile Push API - COMPLETE & ROBUST Database Setup Script (v4.0)
 --
 -- This script contains:
 --   1. The original schema for the "Send Queue" (SMC_LOAD_PROFILE_INBOUND).
 --   2. The NEW schema for the "Batching Queue" (SMC_ORDER_PACKAGES).
---
--- UPDATES v4.1:
---   - Added UNIQUE CONSTRAINT on SMC_ORDER_ITEMS(PROFIL_BLOC_ID)
---   - Updated SP_SMC_ADD_ORDER_ITEM to be idempotent (handle duplicates)
 --
 -- This script is idempotent and will safely drop all objects before
 -- recreating them.
@@ -24,7 +20,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP PROCEDURE SP_SMC_ADD_ORDER_ITEM';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -4043 THEN RAISE; END IF;
+      IF SQLCODE != -4043 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -32,7 +30,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP PROCEDURE SP_SMC_RESET_FAILED_PACKAGE';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -4043 THEN RAISE; END IF;
+      IF SQLCODE != -4043 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -41,7 +41,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP PROCEDURE SP_SMC_CLEANUP_OLD_MESSAGES';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -4043 THEN RAISE; END IF;
+      IF SQLCODE != -4043 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -49,7 +51,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP PROCEDURE SP_SMC_RESET_FOR_RETRY';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -4043 THEN RAISE; END IF;
+      IF SQLCODE != -4043 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -58,7 +62,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP VIEW V_SMC_ORDER_PACKAGE_STATS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -66,7 +72,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP VIEW V_SMC_ORDER_PACKAGE_DETAILS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -75,7 +83,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP VIEW V_SMC_LOAD_PROFILE_STATS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -83,7 +93,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP VIEW V_SMC_LOAD_PROFILE_ATTENTION';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -91,7 +103,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP VIEW V_SMC_LOAD_PROFILE_DAILY_SUMMARY';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -100,7 +114,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP TABLE SMC_ORDER_ITEMS CASCADE CONSTRAINTS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -108,7 +124,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP TABLE SMC_ORDER_PACKAGES CASCADE CONSTRAINTS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -117,7 +135,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP TABLE SMC_LOAD_PROFILE_INBOUND CASCADE CONSTRAINTS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -125,7 +145,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP TABLE SMC_LOAD_PROFILE_AUDIT CASCADE CONSTRAINTS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -133,7 +155,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP TABLE SMC_LOAD_PROFILE_CONFIG CASCADE CONSTRAINTS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -942 THEN RAISE; END IF;
+      IF SQLCODE != -942 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -142,7 +166,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP SEQUENCE SEQ_SMC_LOAD_PROFILE_AUDIT';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -2289 THEN RAISE; END IF;
+      IF SQLCODE != -2289 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -150,7 +176,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP SEQUENCE SEQ_SMC_ORDER_PACKAGES';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -2289 THEN RAISE; END IF;
+      IF SQLCODE != -2289 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -158,7 +186,9 @@ BEGIN
    EXECUTE IMMEDIATE 'DROP SEQUENCE SEQ_SMC_ORDER_ITEMS';
 EXCEPTION
    WHEN OTHERS THEN
-      IF SQLCODE != -2289 THEN RAISE; END IF;
+      IF SQLCODE != -2289 THEN
+         RAISE;
+      END IF;
 END;
 /
 
@@ -169,27 +199,42 @@ END;
 PROMPT Creating Table: SMC_LOAD_PROFILE_INBOUND (Send Queue)...
 
 CREATE TABLE SMC_LOAD_PROFILE_INBOUND (
+    -- Primary Key, from the main <MessageHeader><UUID> in the XML
     MESSAGE_UUID VARCHAR2(36) NOT NULL,
+    
+    -- The complete raw XML payload, stored for auditing and reprocessing
     RAW_PAYLOAD CLOB NOT NULL,
+    
+    -- Tracks the message lifecycle, used by the portal and processors
     STATUS VARCHAR2(20) NOT NULL,
+    
+    -- Audit Timestamps
     RECEIVED_TIMESTAMP TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
     PROCESSING_START_TIME TIMESTAMP,
     PROCESSING_END_TIME TIMESTAMP,
     LAST_MANUAL_RETRY_TIME TIMESTAMP,
-    LAST_ATTEMPT_TIMESTAMP TIMESTAMP,
+    LAST_ATTEMPT_TIMESTAMP TIMESTAMP, -- Kept from v1.0 for DAO compatibility
+    
+    -- HTTP Response tracking
     LAST_HTTP_STATUS_CODE NUMBER(5) DEFAULT 0,
     LAST_RESPONSE_MESSAGE VARCHAR2(500),
     LAST_ERROR_MESSAGE VARCHAR2(4000),
-    ATTEMPT_COUNT NUMBER(3) DEFAULT 0 NOT NULL,
+    
+    -- Retry & Error Info
+    ATTEMPT_COUNT NUMBER(3) DEFAULT 0 NOT NULL, -- Kept from v1.0 for DAO compatibility
     ORIGINAL_MESSAGE_ID VARCHAR2(36),
     MANUAL_RETRY_COUNT NUMBER(3) DEFAULT 0,
+    
+    -- Additional Metadata
     PROCESSED_BY VARCHAR2(100),
     NOTES VARCHAR2(2000),
     
+    -- Constraints
     CONSTRAINT PK_SMC_LOAD_PROFILE_INBOUND PRIMARY KEY (MESSAGE_UUID),
+    -- All possible statuses from v1 and v3
     CONSTRAINT CHK_SMC_STATUS CHECK (STATUS IN (
-        'PENDING', 'PROCESSING', 'COMPLETED', 'FAILED',
-        'RECEIVED', 'SENT_OK', 'FAILED_RETRY', 'FAILED_DLQ'
+        'PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', -- New v3.0 statuses
+        'RECEIVED', 'SENT_OK', 'FAILED_RETRY', 'FAILED_DLQ' -- Old v1.0 statuses
     )),
     CONSTRAINT CHK_SMC_ATTEMPT_COUNT CHECK (ATTEMPT_COUNT >= 0)
 ) TABLESPACE USERS;
@@ -221,13 +266,15 @@ CREATE TABLE SMC_ORDER_PACKAGES (
     PACKAGE_ID NUMBER DEFAULT SEQ_SMC_ORDER_PACKAGES.NEXTVAL NOT NULL,
     STATUS VARCHAR2(20) NOT NULL,
     CREATED_TIMESTAMP TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
-    CHANNEL_ID VARCHAR2(100),
+    CHANNEL_ID VARCHAR2(100), -- Used to group items by meter/channel
     
     CONSTRAINT PK_SMC_ORDER_PACKAGES PRIMARY KEY (PACKAGE_ID),
     CONSTRAINT CHK_SMC_PACKAGE_STATUS CHECK (STATUS IN ('OPEN', 'PROCESSING', 'FAILED', 'COMPLETED'))
 ) TABLESPACE USERS;
 
 COMMENT ON TABLE SMC_ORDER_PACKAGES IS 'Collects order items into batches (v4.0)';
+COMMENT ON COLUMN SMC_ORDER_PACKAGES.STATUS IS 'OPEN, PROCESSING, FAILED, COMPLETED';
+COMMENT ON COLUMN SMC_ORDER_PACKAGES.CHANNEL_ID IS 'Logical identifier to group items, e.g., a Meter ID or POD ID';
 
 PROMPT Creating Table: SMC_ORDER_ITEMS (Batching Items)...
 
@@ -242,29 +289,31 @@ CREATE TABLE SMC_ORDER_ITEMS (
     ITEM_ID NUMBER DEFAULT SEQ_SMC_ORDER_ITEMS.NEXTVAL NOT NULL,
     PACKAGE_ID NUMBER,
     PROFIL_BLOC_ID VARCHAR2(100) NOT NULL, -- Reference to the source data
-    DATA_TYPE VARCHAR2(50) NOT NULL, 
+    DATA_TYPE VARCHAR2(50) NOT NULL, -- For filtering "Energie / Consumption"
     OBIS_CODE VARCHAR2(50),
     POD_ID VARCHAR2(100),
     STATUS VARCHAR2(20) DEFAULT 'PENDING' NOT NULL,
     CREATED_TIMESTAMP TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
-    RAW_XML CLOB,
     
     CONSTRAINT PK_SMC_ORDER_ITEMS PRIMARY KEY (ITEM_ID),
     CONSTRAINT FK_SMC_ORDER_ITEM_PACKAGE FOREIGN KEY (PACKAGE_ID)
         REFERENCES SMC_ORDER_PACKAGES(PACKAGE_ID) ON DELETE SET NULL,
-    CONSTRAINT CHK_SMC_ITEM_STATUS CHECK (STATUS IN ('PENDING', 'PROCESSED')),
-    -- FIX v4.1: Ensure each ProfilBloc is only processed once
-    CONSTRAINT UK_SMC_PROFIL_BLOC UNIQUE (PROFIL_BLOC_ID)
+    CONSTRAINT CHK_SMC_ITEM_STATUS CHECK (STATUS IN ('PENDING', 'PROCESSED'))
 ) TABLESPACE USERS;
 
 COMMENT ON TABLE SMC_ORDER_ITEMS IS 'Individual data points from PROFIL_BLOC to be batched (v4.0)';
+COMMENT ON COLUMN SMC_ORDER_ITEMS.PROFIL_BLOC_ID IS 'Reference to the source data (e.g., primary key from PROFIL_BLOC)';
+COMMENT ON COLUMN SMC_ORDER_ITEMS.DATA_TYPE IS 'Used to filter for ''Energie / Consumption''';
+COMMENT ON COLUMN SMC_ORDER_ITEMS.STATUS IS 'PENDING, PROCESSED';
 
 PROMPT Creating Indexes for Batching Tables...
 
+-- Index for finding packages by status (used by ORDER_PROCESSOR)
 CREATE INDEX IDX_SMC_ORDER_PACKAGE_STATUS 
 ON SMC_ORDER_PACKAGES (STATUS, CREATED_TIMESTAMP)
 TABLESPACE USERS;
 
+-- Index for finding items by package
 CREATE INDEX IDX_SMC_ORDER_ITEM_PACKAGE 
 ON SMC_ORDER_ITEMS (PACKAGE_ID)
 TABLESPACE USERS;
@@ -310,19 +359,33 @@ CREATE TABLE SMC_LOAD_PROFILE_CONFIG (
     CONSTRAINT PK_SMC_LOAD_PROFILE_CONFIG PRIMARY KEY (CONFIG_KEY)
 ) TABLESPACE USERS;
 
--- Insert Configuration Defaults
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('PROCESSOR_INTERVAL_MS', '60000', 'Processing interval in milliseconds (Send Queue)');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('BATCH_SIZE', '10', 'Number of messages to process in each batch (Send Queue)');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('MAX_PROFILES_PER_MESSAGE', '10', 'Maximum profiles per SOAP message');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('SAP_ENDPOINT_HOST', 'sapd2ojas67.sapservers.local', 'SAP endpoint hostname');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('SAP_ENDPOINT_PORT', '56700', 'SAP endpoint port');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('SAP_ENDPOINT_PATH', '/XISOAPAdapter/MessageServlet', 'SAP endpoint path');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('USE_HTTPS', 'true', 'Use HTTPS for SAP communication');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('CONNECT_TIMEOUT_MS', '30000', 'Connection timeout in milliseconds');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('READ_TIMEOUT_MS', '60000', 'Read timeout in milliseconds');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('ORDER_PROCESSOR_INTERVAL_MS', '300000', 'Processing interval in milliseconds (Batching Queue, e.g., 5 mins)');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('ORDER_PROCESSOR_DELAY_MINUTES', '60', 'Max age of a package before it is sent (e.g., 60 mins)');
-INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES ('ORDER_PROCESSOR_MAX_SIZE', '100', 'Max number of items in a package before it is sent (e.g., 100)');
+-- Insert Original Send Configuration
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('PROCESSOR_INTERVAL_MS', '60000', 'Processing interval in milliseconds (Send Queue)');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('BATCH_SIZE', '10', 'Number of messages to process in each batch (Send Queue)');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('MAX_PROFILES_PER_MESSAGE', '10', 'Maximum profiles per SOAP message');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('SAP_ENDPOINT_HOST', 'sapd2ojas67.sapservers.local', 'SAP endpoint hostname');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('SAP_ENDPOINT_PORT', '56700', 'SAP endpoint port');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('SAP_ENDPOINT_PATH', '/XISOAPAdapter/MessageServlet', 'SAP endpoint path');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('USE_HTTPS', 'true', 'Use HTTPS for SAP communication');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('CONNECT_TIMEOUT_MS', '30000', 'Connection timeout in milliseconds');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('READ_TIMEOUT_MS', '60000', 'Read timeout in milliseconds');
+
+-- Insert NEW Batching Configuration
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('ORDER_PROCESSOR_INTERVAL_MS', '300000', 'Processing interval in milliseconds (Batching Queue, e.g., 5 mins)');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('ORDER_PROCESSOR_DELAY_MINUTES', '60', 'Max age of a package before it is sent (e.g., 60 mins)');
+INSERT INTO SMC_LOAD_PROFILE_CONFIG (CONFIG_KEY, CONFIG_VALUE, CONFIG_DESC) VALUES
+    ('ORDER_PROCESSOR_MAX_SIZE', '100', 'Max number of items in a package before it is sent (e.g., 100)');
 
 COMMIT;
 
@@ -330,7 +393,8 @@ COMMIT;
 -- Part 5: Create Monitoring Views
 -- =============================================================================
 
-PROMPT Creating View: V_SMC_LOAD_PROFILE_STATS...
+PROMPT Creating View: V_SMC_LOAD_PROFILE_STATS (Send Queue)...
+
 CREATE OR REPLACE VIEW V_SMC_LOAD_PROFILE_STATS AS
 SELECT 
     STATUS,
@@ -341,7 +405,8 @@ SELECT
 FROM SMC_LOAD_PROFILE_INBOUND
 GROUP BY STATUS;
 
-PROMPT Creating View: V_SMC_LOAD_PROFILE_ATTENTION...
+PROMPT Creating View: V_SMC_LOAD_PROFILE_ATTENTION (Send Queue)...
+
 CREATE OR REPLACE VIEW V_SMC_LOAD_PROFILE_ATTENTION AS
 SELECT 
     MESSAGE_UUID,
@@ -359,7 +424,9 @@ FROM SMC_LOAD_PROFILE_INBOUND
 WHERE STATUS IN ('FAILED', 'PROCESSING')
 ORDER BY RECEIVED_TIMESTAMP;
 
-PROMPT Creating View: V_SMC_LOAD_PROFILE_DAILY_SUMMARY...
+
+PROMPT Creating View: V_SMC_LOAD_PROFILE_DAILY_SUMMARY (Send Queue)...
+
 CREATE OR REPLACE VIEW V_SMC_LOAD_PROFILE_DAILY_SUMMARY AS
 SELECT 
     TRUNC(RECEIVED_TIMESTAMP) AS PROCESS_DATE,
@@ -372,7 +439,8 @@ FROM SMC_LOAD_PROFILE_INBOUND
 GROUP BY TRUNC(RECEIVED_TIMESTAMP)
 ORDER BY PROCESS_DATE DESC;
 
-PROMPT Creating View: V_SMC_ORDER_PACKAGE_STATS...
+PROMPT Creating View: V_SMC_ORDER_PACKAGE_STATS (Batching Queue)...
+
 CREATE OR REPLACE VIEW V_SMC_ORDER_PACKAGE_STATS AS
 SELECT 
     STATUS,
@@ -382,7 +450,8 @@ SELECT
 FROM SMC_ORDER_PACKAGES
 GROUP BY STATUS;
 
-PROMPT Creating View: V_SMC_ORDER_PACKAGE_DETAILS...
+PROMPT Creating View: V_SMC_ORDER_PACKAGE_DETAILS (Batching Queue)...
+
 CREATE OR REPLACE VIEW V_SMC_ORDER_PACKAGE_DETAILS AS
 SELECT
     p.PACKAGE_ID,
@@ -399,7 +468,8 @@ ORDER BY p.CREATED_TIMESTAMP;
 -- Part 6: Stored Procedures
 -- =============================================================================
 
-PROMPT Creating Procedure: SP_SMC_CLEANUP_OLD_MESSAGES...
+PROMPT Creating Procedure: SP_SMC_CLEANUP_OLD_MESSAGES (Send Queue)...
+
 CREATE OR REPLACE PROCEDURE SP_SMC_CLEANUP_OLD_MESSAGES(
     p_days_to_keep IN NUMBER DEFAULT 30,
     p_deleted_count OUT NUMBER
@@ -411,6 +481,7 @@ BEGIN
     
     p_deleted_count := SQL%ROWCOUNT;
     
+    -- Add audit entry
     IF p_deleted_count > 0 THEN
         INSERT INTO SMC_LOAD_PROFILE_AUDIT (
             MESSAGE_UUID, ACTION, NEW_STATUS, ACTION_BY, DETAILS
@@ -431,7 +502,8 @@ EXCEPTION
 END SP_SMC_CLEANUP_OLD_MESSAGES;
 /
 
-PROMPT Creating Procedure: SP_SMC_RESET_FOR_RETRY...
+PROMPT Creating Procedure: SP_SMC_RESET_FOR_RETRY (Send Queue)...
+
 CREATE OR REPLACE PROCEDURE SP_SMC_RESET_FOR_RETRY(
     p_message_uuid IN VARCHAR2
 ) AS
@@ -458,6 +530,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20001, 'Message not found or not in FAILED status');
     END IF;
     
+    -- Add audit entry
     INSERT INTO SMC_LOAD_PROFILE_AUDIT (
         MESSAGE_UUID, ACTION, OLD_STATUS, NEW_STATUS, ACTION_BY, DETAILS
     ) VALUES (
@@ -474,7 +547,7 @@ EXCEPTION
 END SP_SMC_RESET_FOR_RETRY;
 /
 
-PROMPT Creating Procedure: SP_SMC_ADD_ORDER_ITEM (With Idempotency)...
+PROMPT Creating Procedure: SP_SMC_ADD_ORDER_ITEM (Batching Queue)...
 
 CREATE OR REPLACE PROCEDURE SP_SMC_ADD_ORDER_ITEM(
     p_channel_id IN VARCHAR2,
@@ -508,47 +581,26 @@ BEGIN
         RETURNING PACKAGE_ID INTO v_package_id;
     END IF;
 
-    -- Step 3: Insert the new item (Protected by UNIQUE CONSTRAINT)
-    BEGIN
-        INSERT INTO SMC_ORDER_ITEMS (
-            PACKAGE_ID, 
-            PROFIL_BLOC_ID, 
-            DATA_TYPE, 
-            OBIS_CODE, 
-            POD_ID, 
-            STATUS,
-            RAW_XML
-        ) VALUES (
-            v_package_id,
-            p_profil_bloc_id,
-            p_data_type,
-            p_obis_code,
-            p_pod_id,
-            'PENDING',
-            p_raw_xml
-        );
-        
-        -- If successful, we are done.
-        p_package_id := v_package_id;
-        
-    EXCEPTION
-        WHEN DUP_VAL_ON_INDEX THEN
-            -- FIX v4.1: IDEMPOTENCY CHECK
-            -- If we are here, the PROFIL_BLOC_ID already exists.
-            -- Instead of crashing, we gracefully retrieve the existing package ID.
-            BEGIN
-                SELECT PACKAGE_ID INTO p_package_id
-                FROM SMC_ORDER_ITEMS
-                WHERE PROFIL_BLOC_ID = p_profil_bloc_id;
-                
-                -- Optional logging or just silent success
-                DBMS_OUTPUT.PUT_LINE('Duplicate ignored for: ' || p_profil_bloc_id);
-            EXCEPTION
-                WHEN NO_DATA_FOUND THEN
-                   -- Edge case: Item deleted but index not committed? Should not happen.
-                   RAISE;
-            END;
-    END;
+    -- Step 3: Insert the new item and link it to the package
+    INSERT INTO SMC_ORDER_ITEMS (
+        PACKAGE_ID, 
+        PROFIL_BLOC_ID, 
+        DATA_TYPE, 
+        OBIS_CODE, 
+        POD_ID, 
+        STATUS,
+        RAW_XML  -- <-- NEW FIELD
+    ) VALUES (
+        v_package_id,
+        p_profil_bloc_id,
+        p_data_type,
+        p_obis_code,
+        p_pod_id,
+        'PENDING',
+        p_raw_xml -- <-- NEW VALUE
+    );
+
+    p_package_id := v_package_id;
 
 EXCEPTION
     WHEN OTHERS THEN
@@ -556,13 +608,14 @@ EXCEPTION
 END SP_SMC_ADD_ORDER_ITEM;
 /
 
-PROMPT Creating Procedure: SP_SMC_RESET_FAILED_PACKAGE...
+PROMPT Creating Procedure: SP_SMC_RESET_FAILED_PACKAGE (Batching Queue)...
+
 CREATE OR REPLACE PROCEDURE SP_SMC_RESET_FAILED_PACKAGE(
     p_package_id IN NUMBER
 ) AS
 BEGIN
     UPDATE SMC_ORDER_PACKAGES
-    SET STATUS = 'OPEN'
+    SET STATUS = 'OPEN' -- Reset to OPEN to be picked up again
     WHERE PACKAGE_ID = p_package_id
       AND STATUS = 'FAILED';
       
@@ -570,6 +623,7 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20003, 'Package not found or not in FAILED status');
     END IF;
     
+    -- Mark all items as PENDING again
     UPDATE SMC_ORDER_ITEMS
     SET STATUS = 'PENDING'
     WHERE PACKAGE_ID = p_package_id;
@@ -586,7 +640,8 @@ END SP_SMC_RESET_FAILED_PACKAGE;
 -- Part 7: Triggers
 -- =============================================================================
 
-PROMPT Creating Trigger: TRG_SMC_LOAD_PROFILE_AUDIT...
+PROMPT Creating Trigger: TRG_SMC_LOAD_PROFILE_AUDIT (Send Queue)...
+
 CREATE OR REPLACE TRIGGER TRG_SMC_LOAD_PROFILE_AUDIT
 AFTER INSERT OR UPDATE ON SMC_LOAD_PROFILE_INBOUND
 FOR EACH ROW
@@ -624,10 +679,10 @@ BEGIN
     );
 EXCEPTION
     WHEN OTHERS THEN
+        -- Don't fail the main transaction if audit fails
         NULL;
 END;
 /
-
 -- =============================================================================
 -- Part 8: NEW Table for "Push Relevant" Channel Configuration
 -- =============================================================================
@@ -644,6 +699,9 @@ CREATE TABLE SMC_PUSH_RELEVANT_CHANNELS (
     CONSTRAINT CHK_SMC_IS_RELEVANT CHECK (IS_RELEVANT IN (0, 1))
 ) TABLESPACE USERS;
 
+COMMENT ON TABLE SMC_PUSH_RELEVANT_CHANNELS IS 'Stores the list of channels that are "push relevant" (v4.1)';
+COMMENT ON COLUMN SMC_PUSH_RELEVANT_CHANNELS.IS_RELEVANT IS '1 = Push, 0 = Do not push';
+
 PROMPT Creating Index for SMC_PUSH_RELEVANT_CHANNELS...
 CREATE INDEX IDX_SMC_PUSH_RELEVANT_CHANNEL 
 ON SMC_PUSH_RELEVANT_CHANNELS (CHANNEL_ID)
@@ -653,10 +711,13 @@ TABLESPACE USERS;
 INSERT INTO SMC_PUSH_RELEVANT_CHANNELS (CHANNEL_ID, IS_RELEVANT, DESCRIPTION)
 VALUES ('DEFAULT_CHANNEL_123', 1, 'Default test channel');
 COMMIT;
+-- =============================================================================
+-- End of Script
+-- =============================================================================
 
 PROMPT
 PROMPT =====================================================
-PROMPT Database setup (v4.1 - Fixed) completed successfully!
+PROMPT Database setup (v4.0) completed successfully!
 PROMPT All objects for Batching and Sending are created.
 PROMPT =====================================================
 PROMPT

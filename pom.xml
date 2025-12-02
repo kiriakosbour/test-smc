@@ -160,7 +160,11 @@
             <artifactId>ojdbc8</artifactId>
             <version>${oracle.jdbc.version}</version>
         </dependency>
-        
+        <dependency>
+            <groupId>com.oracle.database.nls</groupId>
+            <artifactId>orai18n</artifactId>
+            <version>${oracle.jdbc.version}</version>
+        </dependency>
         <!-- Connection Pool -->
         <dependency>
             <groupId>com.zaxxer</groupId>
@@ -215,17 +219,35 @@
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
-        
+        <!-- [user]\.m2\repository\org\xmlunit\xmlunit-core\ -->
         <dependency>
             <groupId>org.xmlunit</groupId>
             <artifactId>xmlunit-core</artifactId>
             <version>${xmlunit.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!--  [user]\.m2\repository\com\github\mwiede\jsch\0.2.16\  jsch-0.2.16.jar -->
+        <dependency>
+            <groupId>com.github.mwiede</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.2.16</version>
+        </dependency>
+        <!--
+        TestNG Upto v7.5: JDK 8 or higher.
+        TestNG v7.6.0 and above: JDK 11 or higher.
+         -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>7.5</version>
+            <scope>compile</scope>
+        </dependency>
+
     </dependencies>
     
     <build>
-        <finalName>load-profile-push-api</finalName>
+        <finalName>smartmeters.connector</finalName>
         
         <plugins>
             <plugin>

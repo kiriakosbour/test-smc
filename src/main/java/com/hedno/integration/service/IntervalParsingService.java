@@ -1,179 +1,106 @@
 package com.hedno.integration.service;
 
 import com.hedno.integration.processor.IntervalData;
-import com.hedno.integration.processor.LoadProfileData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 
-import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.StringReader;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
- * Robustly handles both Namespaced and Unqualified child elements.
+ * Service dedicated to parsing ProfilBloc XML into interval data.
+ * UPDATED: Now parses individual <Item> elements from <TimeSeries>.
  */
 public class IntervalParsingService {
 
     private static final Logger logger = LoggerFactory.getLogger(IntervalParsingService.class);
-    
-    private final DocumentBuilderFactory factory;
-    private final String defaultStatus;
+    private DocumentBuilderFactory factory;
+    private String defaultStatus;
 
     public IntervalParsingService() {
         this.factory = DocumentBuilderFactory.newInstance();
-        this.factory.setNamespaceAware(true); 
         this.defaultStatus = System.getProperty("data.default.status", "W");
     }
 
     /**
-     * Parses the Bulk Notification XML and returns a list of all contained profiles.
+     * Parses the raw ProfilBloc XML and generates a list of intervals found in <TimeSeries>.
+     *
+     * @param rawXml The XML from SMC_ORDER_ITEMS
+     * @param profilBlocId The ID for logging
+     * @return A list of IntervalData objects
      */
-    public List<LoadProfileData> parseAllProfiles(String rawXml) {
-        List<LoadProfileData> profiles = new ArrayList<>();
-        if (rawXml == null || rawXml.isEmpty()) {
-            return profiles;
-        }
+    public List<IntervalData> parseIntervalsFromXml(String rawXml, String profilBlocId) {
+        List<IntervalData> intervals = new ArrayList<>();
 
-        try {
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new InputSource(new StringReader(rawXml)));
-            doc.getDocumentElement().normalize();
+        try (InputStream stream = new ByteArrayInputStream(rawXml.getBytes(StandardCharsets.UTF_8))) {
+            Document doc = factory.newDocumentBuilder().parse(stream);
 
-            // Use "*" for namespace to match elements regardless of prefix/namespace qualification
-            NodeList msgNodes = doc.getElementsByTagNameNS("*", "UtilitiesTimeSeriesERPItemNotificationMessage");
+            // Get all <Item> tags anywhere in the document
+            NodeList itemNodes = doc.getElementsByTagName("Item");
+            
+            if (itemNodes.getLength() == 0) {
+                logger.warn("No <Item> tags found in XML for {}", profilBlocId);
+                return intervals;
+            }
 
-            for (int i = 0; i < msgNodes.getLength(); i++) {
-                Node msgNode = msgNodes.item(i);
-                if (msgNode.getNodeType() == Node.ELEMENT_NODE) {
-                    LoadProfileData profile = parseSingleProfile((Element) msgNode);
-                    if (profile != null) {
-                        profiles.add(profile);
+            for (int i = 0; i < itemNodes.getLength(); i++) {
+                Node node = itemNodes.item(i);
+
+                if (node.getNodeType() == Node.ELEMENT_NODE) {
+                    Element element = (Element) node;
+
+                    String startStr = getTagValue(element, "Start");
+                    String endStr = getTagValue(element, "End");
+                    String valueStr = getTagValue(element, "Value");
+                    String statusStr = getTagValue(element, "Status"); // Optional
+
+                    if (startStr != null && endStr != null && valueStr != null) {
+                        try {
+                            IntervalData interval = new IntervalData();
+                            interval.setStartDateTime(LocalDateTime.parse(startStr));
+                            interval.setEndDateTime(LocalDateTime.parse(endStr));
+                            interval.setValue(new BigDecimal(valueStr));
+                            interval.setStatus((statusStr != null && !statusStr.isEmpty()) ? statusStr : this.defaultStatus);
+                            interval.setUnitCode("KWH"); // Default or extract from XML if available
+
+                            intervals.add(interval);
+                        } catch (Exception e) {
+                            logger.error("Error parsing item #{} in {}", i, profilBlocId, e);
+                        }
+                    } else {
+                        logger.warn("Skipping incomplete item #{} in {}", i, profilBlocId);
                     }
                 }
             }
+
         } catch (Exception e) {
-            logger.error("Failed to parse Bulk XML", e);
+            logger.error("Failed to parse XML for {}", profilBlocId, e);
         }
-        return profiles;
+        return intervals;
     }
 
     /**
-     * Legacy support for extracting a single profile by ID.
+     * Helper to get text content of a tag within a specific Element.
      */
-    public List<IntervalData> parseIntervalsFromXml(String rawXml, String profilBlocId) {
-        if (profilBlocId == null) return Collections.emptyList();
-        
-        return parseAllProfiles(rawXml).stream()
-                .filter(p -> profilBlocId.equals(p.getProfilBlocId()))
-                .findFirst()
-                .map(LoadProfileData::getIntervals)
-                .orElse(Collections.emptyList());
-    }
-
-    private LoadProfileData parseSingleProfile(Element msgElement) {
+    private String getTagValue(Element element, String tag) {
         try {
-            LoadProfileData data = new LoadProfileData();
-
-            // 1. Extract Header Info (UUID as ProfilBlocId)
-            Element header = getChild(msgElement, "MessageHeader");
-            if (header != null) {
-                data.setProfilBlocId(getText(header, "UUID"));
-            }
-
-            // 2. Extract Measurement Role (OBIS & POD)
-            Element timeSeries = getChild(msgElement, "UtilitiesTimeSeries");
-            if (timeSeries == null) return null;
-
-            Element role = getChild(timeSeries, "UtilitiesMeasurementTaskAssignmentRole");
-            if (role != null) {
-                data.setObisCode(getText(role, "UtilitiesObjectIdentificationSystemCodeText"));
-                
-                Element podContainer = getChild(role, "UtilitiesPointOfDeliveryExternalIdentification");
-                if (podContainer != null) {
-                    // Try PartyID first (Standard), fall back to MeterSerialID (Variant)
-                    String podId = getText(podContainer, "UtilitiesPointOfDeliveryPartyID");
-                    if (podId == null || podId.isEmpty()) {
-                        podId = getText(podContainer, "UtilitiesMeterSerialID");
-                    }
-                    data.setPodId(podId);
-                }
-            }
-
-            // 3. Extract Intervals
-            List<IntervalData> intervals = new ArrayList<>();
-            // Use "*" to safely find Items whether qualified or not
-            NodeList items = timeSeries.getElementsByTagNameNS("*", "Item");
-            
-            for (int k = 0; k < items.getLength(); k++) {
-                IntervalData interval = parseInterval((Element) items.item(k));
-                if (interval != null) {
-                    intervals.add(interval);
-                }
-            }
-            data.setIntervals(intervals);
-
-            return data;
-        } catch (Exception e) {
-            logger.error("Error parsing profile node", e);
-            return null;
-        }
-    }
-
-    private IntervalData parseInterval(Element item) {
-        try {
-            String start = getText(item, "UTCValidityStartDateTime");
-            String end = getText(item, "UTCValidityEndDateTime");
-            
-            Element qtyEl = getChild(item, "Quantity");
-            String val = (qtyEl != null) ? qtyEl.getTextContent() : null;
-            String unit = (qtyEl != null) ? qtyEl.getAttribute("unitCode") : "KWH";
-
-            String status = defaultStatus;
-            Element statusWrap = getChild(item, "ItemStatus");
-            if (statusWrap != null) {
-                String s = getText(statusWrap, "UtilitiesTimeSeriesItemTypeCode");
-                if (s != null && !s.isEmpty()) status = s;
-            }
-
-            if (start != null && end != null && val != null) {
-                IntervalData id = new IntervalData();
-                id.setStartDateTime(parseDateTime(start));
-                id.setEndDateTime(parseDateTime(end));
-                id.setValue(new BigDecimal(val.trim()));
-                id.setUnitCode(unit);
-                id.setStatus(status);
-                return id;
+            NodeList nodeList = element.getElementsByTagName(tag);
+            if (nodeList.getLength() > 0) {
+                return nodeList.item(0).getTextContent();
             }
         } catch (Exception e) {
-            logger.debug("Skipping invalid interval: {}", e.getMessage());
+            // Ignore
         }
         return null;
-    }
-
-    private String getText(Element parent, String localName) {
-        NodeList nl = parent.getElementsByTagNameNS("*", localName);
-        return (nl.getLength() > 0) ? nl.item(0).getTextContent().trim() : null;
-    }
-
-    private Element getChild(Element parent, String localName) {
-        NodeList nl = parent.getElementsByTagNameNS("*", localName);
-        return (nl.getLength() > 0) ? (Element) nl.item(0) : null;
-    }
-
-    private LocalDateTime parseDateTime(String text) {
-        if (text == null) return null;
-        // Handle "Z" UTC indicator
-        String iso = text.endsWith("Z") ? text.substring(0, text.length() - 1) : text;
-        return LocalDateTime.parse(iso);
     }
 }

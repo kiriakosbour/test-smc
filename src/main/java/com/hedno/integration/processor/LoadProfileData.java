@@ -4,21 +4,15 @@ import java.util.List;
 
 /**
  * Data Transfer Object for a single load profile.
+ * Extracted from OrderProcessor to be a top-level class.
  */
 public class LoadProfileData {
 
-    private String profilBlocId; // Maps to MessageHeader/UUID
     private String obisCode;
     private String podId;
     private List<IntervalData> intervals;
 
-    public String getProfilBlocId() {
-        return profilBlocId;
-    }
-
-    public void setProfilBlocId(String profilBlocId) {
-        this.profilBlocId = profilBlocId;
-    }
+    // Getters and Setters
 
     public String getObisCode() {
         return obisCode;
