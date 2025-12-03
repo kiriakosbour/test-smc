@@ -15,6 +15,7 @@ import java.util.Map;
  * MDM Push Receiver Endpoint v3.0
  * 
  * REST API for receiving ZFA MDM push messages and querying processed data.
+ * URL Convention: /profiles (kept from v2)
  * 
  * Architecture per Architect's design:
  * - SMC_MDM_SCCURVES_HD: Master/header table (renamed from DEBUG_LOG)
@@ -25,7 +26,9 @@ import java.util.Map;
  * @author HEDNO Integration Team
  * @version 3.0
  */
-@Path("/mdm")
+@Path("/profiles")
+@Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML})
+@Produces(MediaType.APPLICATION_JSON)
 public class LoadProfileReceiverEndpoint {
 
     private static final Logger log = LoggerFactory.getLogger(LoadProfileReceiverEndpoint.class);
@@ -35,7 +38,7 @@ public class LoadProfileReceiverEndpoint {
     @PostConstruct
     public void init() {
         this.mdmImportService = new MdmImportService();
-        log.info("MdmImportService v3.0 initialized - HD master table architecture");
+        log.info("LoadProfileReceiverEndpoint v3.0 initialized - HD master table architecture");
     }
 
     // ==========================================================================
@@ -44,16 +47,19 @@ public class LoadProfileReceiverEndpoint {
     
     /**
      * Simple ping endpoint for health checks
+     * URL: GET /api/profiles/ping
      */
     @GET
     @Path("/ping")
     @Produces(MediaType.TEXT_PLAIN)
     public Response ping() {
-        return Response.ok("MDM Receiver v3.0 Active").build();
+        log.info("Ping called");
+        return Response.ok("pong").build();
     }
     
     /**
      * Health check with version info
+     * URL: GET /api/profiles/health
      */
     @GET
     @Path("/health")
@@ -74,7 +80,8 @@ public class LoadProfileReceiverEndpoint {
     // ==========================================================================
     
     /**
-     * Main Push Endpoint for ZFA Measurements
+     * Main endpoint that receives, parses, and saves ZFA MDM XML.
+     * URL: POST /api/profiles/data
      * 
      * Flow:
      * 1. Creates header record in SMC_MDM_SCCURVES_HD (PENDING)
@@ -87,30 +94,29 @@ public class LoadProfileReceiverEndpoint {
      * @return Response with HD_LOG_ID
      */
     @POST
-    @Path("/push")
-    @Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML})
+    @Path("/data")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response receiveMdmPush(String xmlBody) {
-        return receiveMdmPushWithOperation(null, xmlBody);
+    public Response receiveProfileData(String xmlBody) {
+        return receiveProfileDataWithOperation(null, xmlBody);
     }
     
     /**
-     * Push Endpoint with WSDL operation tracking
+     * Push endpoint with WSDL operation tracking
+     * URL: POST /api/profiles/data/{operation}
      * 
      * @param operation WSDL operation name
      * @param xmlBody Raw SOAP/XML payload
      * @return Response with HD_LOG_ID
      */
     @POST
-    @Path("/push/{operation}")
-    @Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML})
+    @Path("/data/{operation}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response receiveMdmPushWithOperation(
+    public Response receiveProfileDataWithOperation(
             @PathParam("operation") String operation,
             String xmlBody) {
         
         long startTime = System.currentTimeMillis();
-        log.info("Received MDM Push - Operation: {}, Size: {} bytes", 
+        log.info("Received Profile Data - Operation: {}, Size: {} bytes", 
             operation, (xmlBody != null ? xmlBody.length() : 0));
 
         if (xmlBody == null || xmlBody.isEmpty()) {
@@ -123,7 +129,7 @@ public class LoadProfileReceiverEndpoint {
             // Process the XML - returns HD_LOG_ID
             long hdLogId = mdmImportService.processZfaMeasurement(
                 xmlBody, 
-                "/api/mdm/push" + (operation != null ? "/" + operation : ""),
+                "/api/profiles/data" + (operation != null ? "/" + operation : ""),
                 operation
             );
             
@@ -134,11 +140,11 @@ public class LoadProfileReceiverEndpoint {
                 hdLogId, duration
             );
             
-            log.info("MDM Push completed - HD_LOG_ID: {}, Duration: {}ms", hdLogId, duration);
+            log.info("Profile Data processing completed - HD_LOG_ID: {}, Duration: {}ms", hdLogId, duration);
             return Response.ok(response).build();
             
         } catch (Exception e) {
-            log.error("MDM Push processing failed", e);
+            log.error("Profile Data processing failed", e);
             
             String errorResponse = String.format(
                 "{\"status\": \"ERROR\", \"error\": \"%s\"}",
@@ -152,28 +158,29 @@ public class LoadProfileReceiverEndpoint {
     }
 
     // ==========================================================================
-    // Query Endpoints
+    // Query Endpoints (keeping old URL convention: /debug/)
     // ==========================================================================
     
     /**
-     * Get header record by LOG_ID
+     * Get debug/header record by LOG_ID
+     * URL: GET /api/profiles/debug/{logId}
      * 
      * Returns header information including status and processing summary.
      * Note: Field renamed from errorMsg to statusMsg per architect's request.
      * 
-     * @param logId The HD_LOG_ID
+     * @param logId The HD_LOG_ID (was DEBUG_LOG_ID in v2)
      * @return Header record with processing summary
      */
     @GET
-    @Path("/header/{logId}")
+    @Path("/debug/{logId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getHeader(@PathParam("logId") long logId) {
+    public Response getDebugLog(@PathParam("logId") long logId) {
         try {
             Map<String, Object> header = mdmImportService.getHeaderById(logId);
             
             if (header == null) {
                 return Response.status(Response.Status.NOT_FOUND)
-                    .entity("{\"error\": \"Header not found\", \"logId\": " + logId + "}")
+                    .entity("{\"error\": \"Debug log not found\", \"logId\": " + logId + "}")
                     .build();
             }
             
@@ -210,7 +217,7 @@ public class LoadProfileReceiverEndpoint {
             return Response.ok(json.toString()).build();
             
         } catch (Exception e) {
-            log.error("Error retrieving header {}", logId, e);
+            log.error("Error retrieving debug log {}", logId, e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                 .entity("{\"error\": \"" + escapeJson(e.getMessage()) + "\"}")
                 .build();
@@ -218,13 +225,17 @@ public class LoadProfileReceiverEndpoint {
     }
     
     /**
-     * Legacy debug endpoint (redirects to header endpoint)
-     * Kept for backward compatibility
+     * Get debug record by transaction ID (UUID lookup)
+     * URL: GET /api/profiles/debug/uuid/{transactionId}
+     * Kept for backward compatibility with v2 API
+     * 
+     * @param transactionId The MESSAGE_UUID
+     * @return Status of the transaction
      */
     @GET
-    @Path("/debug/{transactionId}")
+    @Path("/debug/uuid/{transactionId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getDebugInfo(@PathParam("transactionId") String transactionId) {
+    public Response getDebugByUuid(@PathParam("transactionId") String transactionId) {
         try {
             String status = mdmImportService.getLogStatus(transactionId);
             return Response.ok(
