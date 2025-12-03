@@ -8,29 +8,218 @@ import javax.annotation.PostConstruct;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.util.List;
+import java.util.Map;
 
+/**
+ * MDM Push Receiver Endpoint v3.0
+ * 
+ * REST API for receiving ZFA MDM push messages and querying processed data.
+ * 
+ * Architecture per Architect's design:
+ * - SMC_MDM_SCCURVES_HD: Master/header table (renamed from DEBUG_LOG)
+ * - SMC_MDM_SCCURVES: Curve data with HD_LOG_ID FK
+ * - Multi-source support: ZFA, ITRON
+ * - Multi-type support: MEASURE, ALARM, EVENT
+ * 
+ * @author HEDNO Integration Team
+ * @version 3.0
+ */
 @Path("/mdm")
 public class LoadProfileReceiverEndpoint {
 
     private static final Logger log = LoggerFactory.getLogger(LoadProfileReceiverEndpoint.class);
+    
     private MdmImportService mdmImportService;
 
     @PostConstruct
     public void init() {
-        // In a non-Spring environment, instantiate manually
         this.mdmImportService = new MdmImportService();
-        log.info("MdmImportService initialized.");
+        log.info("MdmImportService v3.0 initialized - HD master table architecture");
     }
 
+    // ==========================================================================
+    // Health & Status Endpoints
+    // ==========================================================================
+    
+    /**
+     * Simple ping endpoint for health checks
+     */
     @GET
     @Path("/ping")
+    @Produces(MediaType.TEXT_PLAIN)
     public Response ping() {
-        return Response.ok("MDM Receiver Active").build();
+        return Response.ok("MDM Receiver v3.0 Active").build();
+    }
+    
+    /**
+     * Health check with version info
+     */
+    @GET
+    @Path("/health")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response health() {
+        String json = String.format(
+            "{\"status\": \"UP\", \"version\": \"3.0.0\", " +
+            "\"hdTable\": \"SMC_MDM_SCCURVES_HD\", " +
+            "\"curvesTable\": \"SMC_MDM_SCCURVES\", " +
+            "\"supportedSources\": [\"ZFA\", \"ITRON\"], " +
+            "\"supportedTypes\": [\"MEASURE\", \"ALARM\", \"EVENT\"]}"
+        );
+        return Response.ok(json).build();
     }
 
+    // ==========================================================================
+    // Main Push Endpoints
+    // ==========================================================================
+    
     /**
-     * DEBUG ENDPOINT (Requested)
-     * Retrieves the status of a specific transaction or the latest log.
+     * Main Push Endpoint for ZFA Measurements
+     * 
+     * Flow:
+     * 1. Creates header record in SMC_MDM_SCCURVES_HD (PENDING)
+     * 2. Parses XML and extracts profiles
+     * 3. Transforms vertical intervals to horizontal Q1-Q96 columns
+     * 4. Saves to SMC_MDM_SCCURVES with HD_LOG_ID reference
+     * 5. Updates header to SUCCESS/ERROR
+     * 
+     * @param xmlBody Raw SOAP/XML payload
+     * @return Response with HD_LOG_ID
+     */
+    @POST
+    @Path("/push")
+    @Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response receiveMdmPush(String xmlBody) {
+        return receiveMdmPushWithOperation(null, xmlBody);
+    }
+    
+    /**
+     * Push Endpoint with WSDL operation tracking
+     * 
+     * @param operation WSDL operation name
+     * @param xmlBody Raw SOAP/XML payload
+     * @return Response with HD_LOG_ID
+     */
+    @POST
+    @Path("/push/{operation}")
+    @Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML})
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response receiveMdmPushWithOperation(
+            @PathParam("operation") String operation,
+            String xmlBody) {
+        
+        long startTime = System.currentTimeMillis();
+        log.info("Received MDM Push - Operation: {}, Size: {} bytes", 
+            operation, (xmlBody != null ? xmlBody.length() : 0));
+
+        if (xmlBody == null || xmlBody.isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity("{\"error\": \"Empty request body\"}")
+                .build();
+        }
+
+        try {
+            // Process the XML - returns HD_LOG_ID
+            long hdLogId = mdmImportService.processZfaMeasurement(
+                xmlBody, 
+                "/api/mdm/push" + (operation != null ? "/" + operation : ""),
+                operation
+            );
+            
+            long duration = System.currentTimeMillis() - startTime;
+            
+            String response = String.format(
+                "{\"status\": \"OK\", \"hdLogId\": %d, \"processingTimeMs\": %d}",
+                hdLogId, duration
+            );
+            
+            log.info("MDM Push completed - HD_LOG_ID: {}, Duration: {}ms", hdLogId, duration);
+            return Response.ok(response).build();
+            
+        } catch (Exception e) {
+            log.error("MDM Push processing failed", e);
+            
+            String errorResponse = String.format(
+                "{\"status\": \"ERROR\", \"error\": \"%s\"}",
+                escapeJson(e.getMessage())
+            );
+            
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity(errorResponse)
+                .build();
+        }
+    }
+
+    // ==========================================================================
+    // Query Endpoints
+    // ==========================================================================
+    
+    /**
+     * Get header record by LOG_ID
+     * 
+     * Returns header information including status and processing summary.
+     * Note: Field renamed from errorMsg to statusMsg per architect's request.
+     * 
+     * @param logId The HD_LOG_ID
+     * @return Header record with processing summary
+     */
+    @GET
+    @Path("/header/{logId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getHeader(@PathParam("logId") long logId) {
+        try {
+            Map<String, Object> header = mdmImportService.getHeaderById(logId);
+            
+            if (header == null) {
+                return Response.status(Response.Status.NOT_FOUND)
+                    .entity("{\"error\": \"Header not found\", \"logId\": " + logId + "}")
+                    .build();
+            }
+            
+            // Get processing summary (curve records)
+            List<Map<String, Object>> summary = mdmImportService.getProcessingSummary(logId);
+            
+            // Build response JSON
+            StringBuilder json = new StringBuilder();
+            json.append("{");
+            json.append("\"logId\": ").append(header.get("logId")).append(",");
+            json.append("\"sourceSystem\": \"").append(header.get("sourceSystem")).append("\",");
+            json.append("\"sourceType\": \"").append(header.get("sourceType")).append("\",");
+            json.append("\"messageUuid\": \"").append(nullSafe(header.get("messageUuid"))).append("\",");
+            json.append("\"status\": \"").append(header.get("status")).append("\",");
+            json.append("\"statusMsg\": ").append(jsonString(header.get("statusMsg"))).append(",");
+            json.append("\"recordsProcessed\": ").append(header.get("recordsProcessed")).append(",");
+            json.append("\"receivedAt\": \"").append(header.get("receivedAt")).append("\",");
+            json.append("\"processingSummary\": [");
+            
+            for (int i = 0; i < summary.size(); i++) {
+                Map<String, Object> row = summary.get(i);
+                if (i > 0) json.append(",");
+                json.append("{");
+                json.append("\"podId\": \"").append(row.get("podId")).append("\",");
+                json.append("\"supplyNum\": \"").append(row.get("supplyNum")).append("\",");
+                json.append("\"dataClass\": \"").append(row.get("dataClass")).append("\",");
+                json.append("\"dateRead\": \"").append(row.get("dateRead")).append("\",");
+                json.append("\"sectionUuid\": ").append(jsonString(row.get("sectionUuid")));
+                json.append("}");
+            }
+            
+            json.append("]}");
+            
+            return Response.ok(json.toString()).build();
+            
+        } catch (Exception e) {
+            log.error("Error retrieving header {}", logId, e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                .entity("{\"error\": \"" + escapeJson(e.getMessage()) + "\"}")
+                .build();
+        }
+    }
+    
+    /**
+     * Legacy debug endpoint (redirects to header endpoint)
+     * Kept for backward compatibility
      */
     @GET
     @Path("/debug/{transactionId}")
@@ -38,40 +227,35 @@ public class LoadProfileReceiverEndpoint {
     public Response getDebugInfo(@PathParam("transactionId") String transactionId) {
         try {
             String status = mdmImportService.getLogStatus(transactionId);
-            return Response.ok("{\"transactionId\": \"" + transactionId + "\", \"status\": \"" + status + "\"}").build();
+            return Response.ok(
+                "{\"transactionId\": \"" + transactionId + "\", \"status\": \"" + status + "\"}"
+            ).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Error retrieving debug info: " + e.getMessage()).build();
+                .entity("{\"error\": \"" + escapeJson(e.getMessage()) + "\"}")
+                .build();
         }
     }
 
-    /**
-     * Main Push Endpoint
-     * 1. Logs raw request to SMC_MDM_DEBUG_LOG.
-     * 2. Parses XML.
-     * 3. Transforms Vertical Data -> Horizontal (Q1..Q100).
-     * 4. Saves to SMC_MDM_SCCURVES.
-     */
-    @POST
-    @Path("/push")
-    @Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML})
-    @Produces(MediaType.TEXT_PLAIN)
-    public Response receiveMdmPush(String xmlBody) {
-        String transactionId = java.util.UUID.randomUUID().toString();
-        log.info("Received MDM Push. TxId: {}, Size: {}", transactionId, (xmlBody != null ? xmlBody.length() : 0));
-
-        if (xmlBody == null || xmlBody.isEmpty()) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Empty Body").build();
-        }
-
-        try {
-            // Service handles the full transaction, including logging to DEBUG_LOG
-            mdmImportService.processIncomingXml(transactionId, xmlBody);
-            
-            return Response.ok("OK. TransactionId: " + transactionId).build();
-        } catch (Exception e) {
-            log.error("Fatal processing error TxId: {}", transactionId, e);
-            return Response.serverError().entity("Processing Failed: " + e.getMessage()).build();
-        }
+    // ==========================================================================
+    // Helper Methods
+    // ==========================================================================
+    
+    private String escapeJson(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
+    }
+    
+    private String nullSafe(Object value) {
+        return value != null ? value.toString() : "";
+    }
+    
+    private String jsonString(Object value) {
+        if (value == null) return "null";
+        return "\"" + escapeJson(value.toString()) + "\"";
     }
 }
