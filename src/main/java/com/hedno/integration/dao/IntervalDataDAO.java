@@ -85,7 +85,6 @@ private void createHikariDataSource() {
             for (IntervalData interval : intervals) {
                 ps.setLong(1, orderItemId);
                 ps.setTimestamp(2, Timestamp.valueOf(interval.getStartDateTime()));
-                ps.setTimestamp(3, Timestamp.valueOf(interval.getEndDateTime()));
                 ps.setBigDecimal(4, interval.getValue());
                 ps.setString(5, interval.getUnitCode());
                 ps.setString(6, interval.getStatus());

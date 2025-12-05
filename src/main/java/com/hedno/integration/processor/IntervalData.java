@@ -4,16 +4,28 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Data Transfer Object for a single profile interval.
- * Extracted from OrderProcessor to be a top-level class.
+ * Interval Data entity.
+ * Represents a single 15-minute interval reading.
+ * 
+ * @author HEDNO Integration Team
+ * @version 3.0
  */
 public class IntervalData {
 
     private LocalDateTime startDateTime;
-    private LocalDateTime endDateTime;
     private BigDecimal value;
     private String unitCode;
     private String status;
+
+    public IntervalData() {
+        this.status = "W"; // Default status
+    }
+
+    public IntervalData(LocalDateTime startDateTime, BigDecimal value, String status) {
+        this.startDateTime = startDateTime;
+        this.value = value;
+        this.status = status != null ? status : "W";
+    }
 
     // Getters and Setters
 
@@ -23,14 +35,6 @@ public class IntervalData {
 
     public void setStartDateTime(LocalDateTime startDateTime) {
         this.startDateTime = startDateTime;
-    }
-
-    public LocalDateTime getEndDateTime() {
-        return endDateTime;
-    }
-
-    public void setEndDateTime(LocalDateTime endDateTime) {
-        this.endDateTime = endDateTime;
     }
 
     public BigDecimal getValue() {
@@ -55,5 +59,15 @@ public class IntervalData {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    @Override
+    public String toString() {
+        return "IntervalData{" +
+                "startDateTime=" + startDateTime +
+                ", value=" + value +
+                ", unitCode='" + unitCode + '\'' +
+                ", status='" + status + '\'' +
+                '}';
     }
 }

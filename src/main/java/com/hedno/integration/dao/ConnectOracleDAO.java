@@ -1,109 +1,147 @@
 package com.hedno.integration.dao;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Properties;
 
-
+/**
+ * Oracle Database Connection DAO with dual-mode support:
+ * 1. JNDI DataSource lookup (WebLogic/Production)
+ * 2. Direct JDBC connection (Development fallback)
+ * 
+ * @author HEDNO Integration Team
+ * @version 3.0
+ */
 public class ConnectOracleDAO {
-	public Connection conn = null;
-	public DataSource dataSource = null;
 
-	public PreparedStatement ps = null;
-	public ResultSet rs = null;
-	public Statement stmt = null;
+    private static final Logger logger = LoggerFactory.getLogger(ConnectOracleDAO.class);
 
-	static String driver;
-	static String connectString;
-	static String usr; 
-	static String pass;
+    private DataSource dataSource;
+    private boolean jndiAttempted = false;
+    private boolean jndiAvailable = false;
 
-	public ConnectOracleDAO(Properties props){
+    // Direct JDBC configuration (fallback)
+    private final String driver;
+    private final String connectString;
+    private final String username;
+    private final String password;
+    private final String jndiName;
 
-		try{
-			initializeDataSource(props.getProperty("jndi.datasource.name", "jdbc/artemis_smc"));
-			if (dataSource == null) {
-				driver = props.getProperty("db.driver");
-				connectString = props.getProperty("db.url");
-				usr = props.getProperty("db.username");  
-				pass = props.getProperty("db.password");
-				System.out.println("ConnectOracle Constuctor Called");
-			}
-		}catch (Exception e) {
-			System.out.println("Constuctor Exception");
-			e.printStackTrace();
-			try{
-				throw new Exception();
-			}
-			catch (Exception e1) {
-				System.out.println("Constuctor 2nd Exception");
-				e1.printStackTrace();
-			}
-		}
-	}
+    /**
+     * Constructor with Properties configuration
+     * 
+     * @param props Properties containing database configuration
+     */
+    public ConnectOracleDAO(Properties props) {
+        this.jndiName = props.getProperty("jndi.datasource.name", "jdbc/artemis_smc");
+        this.driver = props.getProperty("db.driver", "oracle.jdbc.driver.OracleDriver");
+        this.connectString = props.getProperty("db.url", "");
+        this.username = props.getProperty("db.username", "");
+        this.password = props.getProperty("db.password", "");
 
+        logger.debug("ConnectOracleDAO initialized - JNDI: {}, JDBC URL: {}", 
+            jndiName, connectString);
+    }
 
-	private void initializeDataSource(String dsName) {
-		try {
-			InitialContext ctx = new InitialContext();
-			dataSource = (DataSource) ctx.lookup(dsName);
-		} catch (Exception e) {
-			System.out.println("Initialize datasource exception");
-			e.printStackTrace();
-		}
-	}
-
-
-
-	private Connection getConnectionInternal(){
-		try {
-			System.out.println("static ConnectOracleDAO.getConnection() Called");
-			Class.forName(driver);//19c
-			//Get Connection
-			Connection connRet = DriverManager.getConnection(connectString, usr, pass);
-			//conn = connRet;
-
-			return connRet;
-		}catch (Exception e) {
-			e.printStackTrace();
-			return null;
-		}
-	}    
-
-	public Connection getConnection(){
-		try {
-			if (dataSource != null) {
-				return dataSource.getConnection();
-			} else {
-				return getConnectionInternal();
-			}
-		} catch (Exception e) {
-			System.out.println("getConnection datasource exception");
-			e.printStackTrace();
-		}
-		return null;
-	}   
-
-	// this is better to be removed
-    public PreparedStatement getPreparedStatement(Connection conn, String sql){
-        try {
-            if (dataSource != null) {
-                ps = conn.prepareStatement(sql);
-            } else {
-                ps = conn.prepareStatement(sql);
-            }
-            return ps;
+    /**
+     * Initialize DataSource via JNDI lookup
+     * Only attempts once to avoid repeated failed lookups
+     */
+    private synchronized void initializeDataSource() {
+        if (jndiAttempted) {
+            return;
         }
-        catch (Exception e) {
-            e.printStackTrace();
-            return null;
+        jndiAttempted = true;
+
+        try {
+            InitialContext ctx = new InitialContext();
+            dataSource = (DataSource) ctx.lookup(jndiName);
+            jndiAvailable = true;
+            logger.info("Successfully obtained DataSource from JNDI: {}", jndiName);
+        } catch (NamingException e) {
+            logger.warn("JNDI DataSource '{}' not available, will use direct JDBC: {}", 
+                jndiName, e.getMessage());
+            jndiAvailable = false;
         }
     }
-	 
+
+    /**
+     * Get a database connection
+     * Tries JNDI first, falls back to direct JDBC
+     * 
+     * @return Database connection
+     * @throws SQLException if connection cannot be established
+     */
+    public Connection getConnection() throws SQLException {
+        // Try JNDI DataSource first
+        if (!jndiAttempted) {
+            initializeDataSource();
+        }
+
+        if (jndiAvailable && dataSource != null) {
+            try {
+                Connection conn = dataSource.getConnection();
+                logger.debug("Connection obtained from JNDI DataSource");
+                return conn;
+            } catch (SQLException e) {
+                logger.error("Failed to get connection from JNDI DataSource", e);
+                throw e;
+            }
+        }
+
+        // Fallback to direct JDBC
+        return getDirectConnection();
+    }
+
+    /**
+     * Get connection via direct JDBC (fallback for development)
+     * 
+     * @return Database connection
+     * @throws SQLException if connection cannot be established
+     */
+    private Connection getDirectConnection() throws SQLException {
+        if (connectString == null || connectString.isEmpty()) {
+            throw new SQLException("No JNDI DataSource available and JDBC URL is not configured");
+        }
+
+        try {
+            Class.forName(driver);
+            Connection conn = DriverManager.getConnection(connectString, username, password);
+            logger.debug("Connection obtained via direct JDBC: {}", connectString);
+            return conn;
+        } catch (ClassNotFoundException e) {
+            logger.error("Oracle JDBC driver not found: {}", driver, e);
+            throw new SQLException("JDBC driver not found: " + driver, e);
+        } catch (SQLException e) {
+            logger.error("Failed to establish direct JDBC connection to: {}", connectString, e);
+            throw e;
+        }
+    }
+
+    /**
+     * Check if JNDI DataSource is available
+     */
+    public boolean isJndiAvailable() {
+        if (!jndiAttempted) {
+            initializeDataSource();
+        }
+        return jndiAvailable;
+    }
+
+    /**
+     * Get connection mode description for logging
+     */
+    public String getConnectionMode() {
+        if (!jndiAttempted) {
+            initializeDataSource();
+        }
+        return jndiAvailable ? "JNDI:" + jndiName : "JDBC:" + connectString;
+    }
 }

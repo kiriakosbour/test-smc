@@ -68,7 +68,6 @@ public class IntervalParsingService {
                         try {
                             IntervalData interval = new IntervalData();
                             interval.setStartDateTime(LocalDateTime.parse(startStr));
-                            interval.setEndDateTime(LocalDateTime.parse(endStr));
                             interval.setValue(new BigDecimal(valueStr));
                             interval.setStatus((statusStr != null && !statusStr.isEmpty()) ? statusStr : this.defaultStatus);
                             interval.setUnitCode("KWH"); // Default or extract from XML if available

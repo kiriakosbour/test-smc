@@ -7,12 +7,12 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>com.hedno.integration</groupId>
-    <artifactId>load-profile-push-api</artifactId>
-    <version>1.0.0</version>
+    <artifactId>smartmeters-connector</artifactId>
+    <version>3.0.0</version>
     <packaging>war</packaging>
     
-    <name>Load Profile Push API - HEDNO Integration</name>
-    <description>Critical integration for pushing load profile data to SAP via SOAP</description>
+    <name>SmartMeters Connector - HEDNO Integration</name>
+    <description>Integration for receiving and storing smart meter load profile data (ZFA/ITRON) for Artemis system</description>
     
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -34,37 +34,17 @@
         <xmlunit.version>2.8.3</xmlunit.version>
     </properties>
     
-    <!-- Repository Configuration (HTTPS only) -->
+    <!-- Repository Configuration -->
     <repositories>
         <repository>
             <id>central</id>
             <name>Maven Central Repository</name>
             <url>https://repo1.maven.org/maven2</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
         </repository>
     </repositories>
     
-    <pluginRepositories>
-        <pluginRepository>
-            <id>central</id>
-            <name>Maven Central Plugin Repository</name>
-            <url>https://repo1.maven.org/maven2</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </pluginRepository>
-    </pluginRepositories>
-    
     <dependencies>
-        <!-- Java EE / Jakarta EE APIs (provided by WebLogic) -->
+        <!-- Java EE APIs (provided by WebLogic) -->
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
@@ -80,20 +60,27 @@
         </dependency>
         
         <dependency>
-            <groupId>javax.jws</groupId>
-            <artifactId>javax.jws-api</artifactId>
-            <version>1.1</version>
-            <scope>provided</scope>
-        </dependency>
-        
-        <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
             <version>1.3.2</version>
             <scope>provided</scope>
         </dependency>
         
-        <!-- JAXB for XML processing (Java 8 compatible) -->
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <version>2.1.1</version>
+            <scope>provided</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+            <version>1</version>
+            <scope>provided</scope>
+        </dependency>
+        
+        <!-- JAXB for XML processing -->
         <dependency>
             <groupId>javax.xml.bind</groupId>
             <artifactId>jaxb-api</artifactId>
@@ -117,42 +104,6 @@
             <artifactId>activation</artifactId>
             <version>1.1.1</version>
         </dependency>
-        <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
-            <version>2.1.1</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-            <version>1</version>
-            <scope>provided</scope>
-        </dependency>
-        <!-- JAX-WS for SOAP -->
-        <dependency>
-            <groupId>javax.xml.ws</groupId>
-            <artifactId>jaxws-api</artifactId>
-            <version>2.3.1</version>
-        </dependency>
-        
-        <dependency>
-            <groupId>com.sun.xml.ws</groupId>
-            <artifactId>jaxws-rt</artifactId>
-            <version>2.3.3</version>
-        </dependency>
-        
-        <dependency>
-            <groupId>javax.xml.soap</groupId>
-            <artifactId>javax.xml.soap-api</artifactId>
-            <version>1.4.0</version>
-        </dependency>
-        
-        <dependency>
-            <groupId>com.sun.xml.messaging.saaj</groupId>
-            <artifactId>saaj-impl</artifactId>
-            <version>1.5.3</version>
-        </dependency>
         
         <!-- Oracle JDBC Driver -->
         <dependency>
@@ -160,11 +111,13 @@
             <artifactId>ojdbc8</artifactId>
             <version>${oracle.jdbc.version}</version>
         </dependency>
+        
         <dependency>
             <groupId>com.oracle.database.nls</groupId>
             <artifactId>orai18n</artifactId>
             <version>${oracle.jdbc.version}</version>
         </dependency>
+        
         <!-- Connection Pool -->
         <dependency>
             <groupId>com.zaxxer</groupId>
@@ -205,6 +158,13 @@
             <version>${java-uuid.version}</version>
         </dependency>
         
+        <!-- SFTP Client -->
+        <dependency>
+            <groupId>com.github.mwiede</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.2.16</version>
+        </dependency>
+        
         <!-- Testing -->
         <dependency>
             <groupId>junit</groupId>
@@ -219,35 +179,44 @@
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- [user]\.m2\repository\org\xmlunit\xmlunit-core\ -->
+        
         <dependency>
             <groupId>org.xmlunit</groupId>
             <artifactId>xmlunit-core</artifactId>
             <version>${xmlunit.version}</version>
             <scope>test</scope>
         </dependency>
-
-        <!--  [user]\.m2\repository\com\github\mwiede\jsch\0.2.16\  jsch-0.2.16.jar -->
-        <dependency>
-            <groupId>com.github.mwiede</groupId>
-            <artifactId>jsch</artifactId>
-            <version>0.2.16</version>
-        </dependency>
-        <!--
-        TestNG Upto v7.5: JDK 8 or higher.
-        TestNG v7.6.0 and above: JDK 11 or higher.
-         -->
+        
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <version>7.5</version>
-            <scope>compile</scope>
+            <scope>test</scope>
         </dependency>
-
     </dependencies>
     
     <build>
         <finalName>smartmeters.connector</finalName>
+        
+        <resources>
+            <!-- Filter properties files with Maven placeholders -->
+            <resource>
+                <directory>src/main/resources/config</directory>
+                <includes>
+                    <include>*.properties</include>
+                </includes>
+                <filtering>true</filtering>
+                <targetPath>config</targetPath>
+            </resource>
+            
+            <!-- Copy everything else without filtering -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>config/*.properties</exclude>
+                </excludes>
+            </resource>
+        </resources>
         
         <plugins>
             <plugin>
@@ -273,12 +242,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.2</version>
-                <configuration>
-                    <skipTests>false</skipTests>
-                </configuration>
             </plugin>
             
-            <!-- Resources Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
@@ -287,51 +252,15 @@
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
-            
-            <!-- Clean Plugin -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-clean-plugin</artifactId>
-                <version>3.1.0</version>
-            </plugin>
-            
-            <!-- JAR Plugin -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.2.0</version>
-            </plugin>
-            
-            <!-- JAXB Code Generation from WSDL (Optional - uncomment if WSDL file is available) -->
-            <!--
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>jaxb2-maven-plugin</artifactId>
-                <version>2.5.0</version>
-                <executions>
-                    <execution>
-                        <id>xjc</id>
-                        <goals>
-                            <goal>xjc</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <wsdl>true</wsdl>
-                    <sources>
-                        <source>src/main/resources/wsdl/UtilitiesTimeSeriesERPItemBulkNotification_OutService.wsdl</source>
-                    </sources>
-                    <packageName>com.hedno.integration.soap.generated</packageName>
-                    <outputDirectory>${project.build.directory}/generated-sources/jaxb</outputDirectory>
-                    <clearOutputDir>false</clearOutputDir>
-                </configuration>
-            </plugin>
-            -->
         </plugins>
     </build>
     
-    <!-- Profiles for different environments -->
+    <!-- ================================================================== -->
+    <!-- Maven Profiles for Environment-Specific Configuration             -->
+    <!-- Usage: mvn clean package -P <profile-id>                          -->
+    <!-- ================================================================== -->
     <profiles>
+        <!-- Development Profile (default) - Uses direct JDBC -->
         <profile>
             <id>development</id>
             <activation>
@@ -339,41 +268,71 @@
             </activation>
             <properties>
                 <env>dev</env>
+                <jndi.datasource.name>java:comp/env/jdbc/LoadProfileDB</jndi.datasource.name>
+                <jdbc.url>jdbc:oracle:thin:@localhost:1521:XE</jdbc.url>
+                <jdbc.username>LOAD_PROFILE</jdbc.username>
+                <jdbc.password>password</jdbc.password>
+                <sftp.host>127.0.0.1</sftp.host>
+                <sftp.port>22</sftp.port>
+                <sftp.username>testuser</sftp.username>
+                <sftp.password>testpass</sftp.password>
+                <processor.interval.ms>60000</processor.interval.ms>
+                <processor.batch.size>10</processor.batch.size>
             </properties>
         </profile>
         
+        <!-- Development WebLogic Profile - Uses JNDI datasource -->
+        <profile>
+            <id>devWeblogic</id>
+            <properties>
+                <env>devWeblogic</env>
+                <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
+                <jdbc.url></jdbc.url>
+                <jdbc.username></jdbc.username>
+                <jdbc.password></jdbc.password>
+                <sftp.host>10.138.19.133</sftp.host>
+                <sftp.port>22</sftp.port>
+                <sftp.username>itron_user</sftp.username>
+                <sftp.password>itron_pass</sftp.password>
+                <processor.interval.ms>60000</processor.interval.ms>
+                <processor.batch.size>10</processor.batch.size>
+            </properties>
+        </profile>
+        
+        <!-- QA Profile -->
+        <profile>
+            <id>qa</id>
+            <properties>
+                <env>qa</env>
+                <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
+                <jdbc.url></jdbc.url>
+                <jdbc.username></jdbc.username>
+                <jdbc.password></jdbc.password>
+                <sftp.host>10.138.19.133</sftp.host>
+                <sftp.port>22</sftp.port>
+                <sftp.username>itron_user</sftp.username>
+                <sftp.password>itron_pass</sftp.password>
+                <processor.interval.ms>60000</processor.interval.ms>
+                <processor.batch.size>10</processor.batch.size>
+            </properties>
+        </profile>
+        
+        <!-- Production Profile -->
         <profile>
             <id>production</id>
             <properties>
                 <env>prod</env>
+                <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
+                <jdbc.url></jdbc.url>
+                <jdbc.username></jdbc.username>
+                <jdbc.password></jdbc.password>
+                <sftp.host>10.138.19.133</sftp.host>
+                <sftp.port>22</sftp.port>
+                <sftp.username>itron_user</sftp.username>
+                <sftp.password>itron_pass</sftp.password>
+                <processor.interval.ms>300000</processor.interval.ms>
+                <processor.batch.size>50</processor.batch.size>
             </properties>
         </profile>
-        
-        <!-- WebLogic deployment profile (requires WebLogic Maven Plugin) -->
-        <!--
-        <profile>
-            <id>weblogic</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>com.oracle.weblogic</groupId>
-                        <artifactId>weblogic-maven-plugin</artifactId>
-                        <version>14.1.1.0</version>
-                        <configuration>
-                            <adminurl>t3://localhost:7001</adminurl>
-                            <user>weblogic</user>
-                            <password>welcome1</password>
-                            <upload>true</upload>
-                            <action>deploy</action>
-                            <remote>false</remote>
-                            <verbose>true</verbose>
-                            <source>${project.build.directory}/${project.build.finalName}.war</source>
-                            <name>${project.build.finalName}</name>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        -->
     </profiles>
 </project>

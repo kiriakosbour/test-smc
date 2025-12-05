@@ -15,7 +15,11 @@ import java.util.Map;
  * MDM Push Receiver Endpoint v3.0
  * 
  * REST API for receiving ZFA MDM push messages and querying processed data.
- * URL Convention: /profiles (kept from v2)
+ * 
+ * URL Convention:
+ *   Base path: /profiles
+ *   Push data: POST /api/profiles/profiles  (or /api/profiles/profiles/{operation})
+ *   Debug:     GET  /api/profiles/debug/{logId}
  * 
  * Architecture per Architect's design:
  * - SMC_MDM_SCCURVES_HD: Master/header table (renamed from DEBUG_LOG)
@@ -81,7 +85,7 @@ public class LoadProfileReceiverEndpoint {
     
     /**
      * Main endpoint that receives, parses, and saves ZFA MDM XML.
-     * URL: POST /api/profiles/data
+     * URL: POST /api/profiles/profiles
      * 
      * Flow:
      * 1. Creates header record in SMC_MDM_SCCURVES_HD (PENDING)
@@ -94,7 +98,7 @@ public class LoadProfileReceiverEndpoint {
      * @return Response with HD_LOG_ID
      */
     @POST
-    @Path("/data")
+    @Path("/profiles")
     @Produces(MediaType.APPLICATION_JSON)
     public Response receiveProfileData(String xmlBody) {
         return receiveProfileDataWithOperation(null, xmlBody);
@@ -102,14 +106,14 @@ public class LoadProfileReceiverEndpoint {
     
     /**
      * Push endpoint with WSDL operation tracking
-     * URL: POST /api/profiles/data/{operation}
+     * URL: POST /api/profiles/profiles/{operation}
      * 
      * @param operation WSDL operation name
      * @param xmlBody Raw SOAP/XML payload
      * @return Response with HD_LOG_ID
      */
     @POST
-    @Path("/data/{operation}")
+    @Path("/profiles/{operation}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response receiveProfileDataWithOperation(
             @PathParam("operation") String operation,
@@ -129,7 +133,7 @@ public class LoadProfileReceiverEndpoint {
             // Process the XML - returns HD_LOG_ID
             long hdLogId = mdmImportService.processZfaMeasurement(
                 xmlBody, 
-                "/api/profiles/data" + (operation != null ? "/" + operation : ""),
+                "/api/profiles/profiles" + (operation != null ? "/" + operation : ""),
                 operation
             );
             
@@ -158,7 +162,7 @@ public class LoadProfileReceiverEndpoint {
     }
 
     // ==========================================================================
-    // Query Endpoints (keeping old URL convention: /debug/)
+    // Query Endpoints
     // ==========================================================================
     
     /**
