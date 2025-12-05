@@ -18,10 +18,13 @@ import java.util.List;
 
 /**
  * Extracts load profile data from raw XML for processing.
- * This is used when we need to parse existing XML data from the database.
+ * 
+ * v3.0 Changes:
+ * - Extracts inner MessageHeader UUID for SECTION_UUID tracking
+ * - Sets messageUuid on LoadProfileData for each channel
  * 
  * @author HEDNO Integration Team
- * @version 1.0
+ * @version 3.0
  */
 public class LoadProfileDataExtractor {
     
@@ -40,7 +43,7 @@ public class LoadProfileDataExtractor {
     /**
      * Extract load profile data from XML string
      * @param xml The XML string to extract from
-     * @return List of LoadProfileData
+     * @return List of LoadProfileData (one per channel/profile)
      */
     public List<LoadProfileData> extractFromXml(String xml) {
         List<LoadProfileData> profileDataList = new ArrayList<>();
@@ -54,6 +57,11 @@ public class LoadProfileDataExtractor {
             // Find all UtilitiesTimeSeriesERPItemNotificationMessage elements
             NodeList messageNodes = document.getElementsByTagNameNS(NAMESPACE, 
                 "UtilitiesTimeSeriesERPItemNotificationMessage");
+            
+            // If namespace-aware didn't work, try without namespace
+            if (messageNodes.getLength() == 0) {
+                messageNodes = document.getElementsByTagName("UtilitiesTimeSeriesERPItemNotificationMessage");
+            }
             
             logger.debug("Found {} notification messages in XML", messageNodes.getLength());
             
@@ -83,8 +91,16 @@ public class LoadProfileDataExtractor {
         try {
             LoadProfileData profileData = new LoadProfileData();
             
+            // Extract inner message UUID for SECTION_UUID (NEW in v3)
+            String innerUuid = extractInnerMessageUuid(messageElement);
+            profileData.setMessageUuid(innerUuid);
+            
             // Get UtilitiesTimeSeries element
             NodeList timeSeriesNodes = messageElement.getElementsByTagNameNS(NAMESPACE, "UtilitiesTimeSeries");
+            if (timeSeriesNodes.getLength() == 0) {
+                timeSeriesNodes = messageElement.getElementsByTagName("UtilitiesTimeSeries");
+            }
+            
             if (timeSeriesNodes.getLength() == 0) {
                 logger.warn("No UtilitiesTimeSeries found in notification message");
                 return null;
@@ -99,8 +115,9 @@ public class LoadProfileDataExtractor {
             List<IntervalData> intervals = extractIntervals(timeSeriesElement);
             profileData.setIntervals(intervals);
             
-            logger.debug("Extracted profile data - OBIS: {}, POD: {}, Intervals: {}", 
-                profileData.getObisCode(), profileData.getPodId(), intervals.size());
+            logger.debug("Extracted profile - OBIS: {}, POD: {}, UUID: {}, Intervals: {}", 
+                profileData.getObisCode(), profileData.getPodId(), 
+                profileData.getMessageUuid(), intervals.size());
             
             return profileData;
             
@@ -111,11 +128,47 @@ public class LoadProfileDataExtractor {
     }
     
     /**
+     * Extract inner message UUID from the MessageHeader within notification message
+     * This becomes the SECTION_UUID in the curves table
+     */
+    private String extractInnerMessageUuid(Element messageElement) {
+        try {
+            // Try with namespace
+            NodeList headerNodes = messageElement.getElementsByTagNameNS(NAMESPACE, "MessageHeader");
+            if (headerNodes.getLength() == 0) {
+                headerNodes = messageElement.getElementsByTagName("MessageHeader");
+            }
+            
+            if (headerNodes.getLength() > 0) {
+                Element headerElement = (Element) headerNodes.item(0);
+                
+                // Get UUID element
+                NodeList uuidNodes = headerElement.getElementsByTagNameNS(NAMESPACE, "UUID");
+                if (uuidNodes.getLength() == 0) {
+                    uuidNodes = headerElement.getElementsByTagName("UUID");
+                }
+                
+                if (uuidNodes.getLength() > 0) {
+                    String uuid = uuidNodes.item(0).getTextContent().trim();
+                    logger.debug("Extracted inner message UUID: {}", uuid);
+                    return uuid;
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Could not extract inner message UUID", e);
+        }
+        return null;
+    }
+    
+    /**
      * Extract measurement role information (OBIS code and POD ID)
      */
     private void extractMeasurementRole(Element timeSeriesElement, LoadProfileData profileData) {
         NodeList roleNodes = timeSeriesElement.getElementsByTagNameNS(NAMESPACE, 
             "UtilitiesMeasurementTaskAssignmentRole");
+        if (roleNodes.getLength() == 0) {
+            roleNodes = timeSeriesElement.getElementsByTagName("UtilitiesMeasurementTaskAssignmentRole");
+        }
         
         if (roleNodes.getLength() > 0) {
             Element roleElement = (Element) roleNodes.item(0);
@@ -123,6 +176,9 @@ public class LoadProfileDataExtractor {
             // Extract OBIS code
             NodeList obisNodes = roleElement.getElementsByTagNameNS(NAMESPACE, 
                 "UtilitiesObjectIdentificationSystemCodeText");
+            if (obisNodes.getLength() == 0) {
+                obisNodes = roleElement.getElementsByTagName("UtilitiesObjectIdentificationSystemCodeText");
+            }
             if (obisNodes.getLength() > 0) {
                 profileData.setObisCode(obisNodes.item(0).getTextContent().trim());
             }
@@ -130,6 +186,9 @@ public class LoadProfileDataExtractor {
             // Extract POD ID
             NodeList podNodes = roleElement.getElementsByTagNameNS(NAMESPACE, 
                 "UtilitiesPointOfDeliveryPartyID");
+            if (podNodes.getLength() == 0) {
+                podNodes = roleElement.getElementsByTagName("UtilitiesPointOfDeliveryPartyID");
+            }
             if (podNodes.getLength() > 0) {
                 profileData.setPodId(podNodes.item(0).getTextContent().trim());
             }
@@ -143,6 +202,9 @@ public class LoadProfileDataExtractor {
         List<IntervalData> intervals = new ArrayList<>();
         
         NodeList itemNodes = timeSeriesElement.getElementsByTagNameNS(NAMESPACE, "Item");
+        if (itemNodes.getLength() == 0) {
+            itemNodes = timeSeriesElement.getElementsByTagName("Item");
+        }
         
         for (int i = 0; i < itemNodes.getLength(); i++) {
             Node itemNode = itemNodes.item(i);
@@ -166,6 +228,10 @@ public class LoadProfileDataExtractor {
             
             // Extract quantity and unit
             NodeList quantityNodes = itemElement.getElementsByTagNameNS(NAMESPACE, "Quantity");
+            if (quantityNodes.getLength() == 0) {
+                quantityNodes = itemElement.getElementsByTagName("Quantity");
+            }
+            
             if (quantityNodes.getLength() > 0) {
                 Element quantityElement = (Element) quantityNodes.item(0);
                 
@@ -180,6 +246,9 @@ public class LoadProfileDataExtractor {
             
             // Extract start datetime
             NodeList startNodes = itemElement.getElementsByTagNameNS(NAMESPACE, "UTCValidityStartDateTime");
+            if (startNodes.getLength() == 0) {
+                startNodes = itemElement.getElementsByTagName("UTCValidityStartDateTime");
+            }
             if (startNodes.getLength() > 0) {
                 String startText = startNodes.item(0).getTextContent().trim();
                 interval.setStartDateTime(parseDateTime(startText));
@@ -187,6 +256,9 @@ public class LoadProfileDataExtractor {
             
             // Extract end datetime
             NodeList endNodes = itemElement.getElementsByTagNameNS(NAMESPACE, "UTCValidityEndDateTime");
+            if (endNodes.getLength() == 0) {
+                endNodes = itemElement.getElementsByTagName("UTCValidityEndDateTime");
+            }
             if (endNodes.getLength() > 0) {
                 String endText = endNodes.item(0).getTextContent().trim();
                 interval.setEndDateTime(parseDateTime(endText));
@@ -195,6 +267,9 @@ public class LoadProfileDataExtractor {
             // Extract status
             NodeList statusNodes = itemElement.getElementsByTagNameNS(NAMESPACE, 
                 "UtilitiesTimeSeriesItemTypeCode");
+            if (statusNodes.getLength() == 0) {
+                statusNodes = itemElement.getElementsByTagName("UtilitiesTimeSeriesItemTypeCode");
+            }
             if (statusNodes.getLength() > 0) {
                 interval.setStatus(statusNodes.item(0).getTextContent().trim());
             }

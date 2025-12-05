@@ -8,11 +8,11 @@
     
     <groupId>com.hedno.integration</groupId>
     <artifactId>load-profile-push-api</artifactId>
-    <version>1.0.0</version>
+    <version>3.0.0</version>
     <packaging>war</packaging>
     
     <name>Load Profile Push API - HEDNO Integration</name>
-    <description>Critical integration for pushing load profile data to SAP via SOAP</description>
+    <description>MDM v3 Integration - SmartMeters Connector for ZFA/ITRON</description>
     
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -117,18 +117,21 @@
             <artifactId>activation</artifactId>
             <version>1.1.1</version>
         </dependency>
+        
         <dependency>
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
             <version>2.1.1</version>
             <scope>provided</scope>
         </dependency>
+        
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
             <version>1</version>
             <scope>provided</scope>
         </dependency>
+        
         <!-- JAX-WS for SOAP -->
         <dependency>
             <groupId>javax.xml.ws</groupId>
@@ -160,11 +163,13 @@
             <artifactId>ojdbc8</artifactId>
             <version>${oracle.jdbc.version}</version>
         </dependency>
+        
         <dependency>
             <groupId>com.oracle.database.nls</groupId>
             <artifactId>orai18n</artifactId>
             <version>${oracle.jdbc.version}</version>
         </dependency>
+        
         <!-- Connection Pool -->
         <dependency>
             <groupId>com.zaxxer</groupId>
@@ -226,11 +231,45 @@
             <version>${xmlunit.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.mwiede</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.2.16</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>7.5</version>
+            <scope>compile</scope>
+        </dependency>
+
     </dependencies>
     
     <build>
-        <finalName>load-profile-push-api</finalName>
-        
+        <finalName>smartmeters.connector</finalName>
+
+        <resources>
+            <!-- Filter ONLY the properties file under config/ -->
+            <resource>
+                <directory>src/main/resources/config</directory>
+                <includes>
+                    <include>*.properties</include>
+                </includes>
+                <filtering>true</filtering>
+                <targetPath>config</targetPath>
+            </resource>
+
+            <!-- Copy everything else normally -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>config/*.properties</exclude>
+                </excludes>
+            </resource>
+        </resources>
+                
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -269,51 +308,28 @@
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
-            
+
             <!-- Clean Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
                 <version>3.1.0</version>
             </plugin>
-            
+
             <!-- JAR Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.2.0</version>
             </plugin>
-            
-            <!-- JAXB Code Generation from WSDL (Optional - uncomment if WSDL file is available) -->
-            <!--
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>jaxb2-maven-plugin</artifactId>
-                <version>2.5.0</version>
-                <executions>
-                    <execution>
-                        <id>xjc</id>
-                        <goals>
-                            <goal>xjc</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <wsdl>true</wsdl>
-                    <sources>
-                        <source>src/main/resources/wsdl/UtilitiesTimeSeriesERPItemBulkNotification_OutService.wsdl</source>
-                    </sources>
-                    <packageName>com.hedno.integration.soap.generated</packageName>
-                    <outputDirectory>${project.build.directory}/generated-sources/jaxb</outputDirectory>
-                    <clearOutputDir>false</clearOutputDir>
-                </configuration>
-            </plugin>
-            -->
         </plugins>
     </build>
     
-    <!-- Profiles for different environments -->
+    <!-- ======================================================================= -->
+    <!-- Profiles for different environments                                     -->
+    <!-- ======================================================================= -->
     <profiles>
+        <!-- Development Profile (default) - Local development -->
         <profile>
             <id>development</id>
             <activation>
@@ -321,41 +337,49 @@
             </activation>
             <properties>
                 <env>dev</env>
+                <jndi.datasource.name>java:comp/env/jdbc/LoadProfileDB</jndi.datasource.name>
+                <!-- Direct JDBC for local development -->
+                <jdbc.url>jdbc:oracle:thin:@localhost:1521:ORCL</jdbc.url>
+                <jdbc.username>artemis_dev</jdbc.username>
+                <jdbc.password>dev_password</jdbc.password>
+            </properties>            
+        </profile>
+
+        <!-- Dev WebLogic Profile - Development WebLogic server -->
+        <profile>
+            <id>devWeblogic</id>
+            <properties>
+                <env>devWeblogic</env>
+                <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
+                <!-- JNDI used, JDBC properties not needed but set for completeness -->
+                <jdbc.url></jdbc.url>
+                <jdbc.username></jdbc.username>
+                <jdbc.password></jdbc.password>
             </properties>
         </profile>
-        
+                
+        <!-- Production Profile -->
         <profile>
             <id>production</id>
             <properties>
                 <env>prod</env>
+                <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
+                <jdbc.url></jdbc.url>
+                <jdbc.username></jdbc.username>
+                <jdbc.password></jdbc.password>
             </properties>
         </profile>
-        
-        <!-- WebLogic deployment profile (requires WebLogic Maven Plugin) -->
-        <!--
+    
+        <!-- QA Profile -->
         <profile>
-            <id>weblogic</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>com.oracle.weblogic</groupId>
-                        <artifactId>weblogic-maven-plugin</artifactId>
-                        <version>14.1.1.0</version>
-                        <configuration>
-                            <adminurl>t3://localhost:7001</adminurl>
-                            <user>weblogic</user>
-                            <password>welcome1</password>
-                            <upload>true</upload>
-                            <action>deploy</action>
-                            <remote>false</remote>
-                            <verbose>true</verbose>
-                            <source>${project.build.directory}/${project.build.finalName}.war</source>
-                            <name>${project.build.finalName}</name>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
+            <id>qa</id>
+            <properties>
+                <env>qa</env>
+                <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
+                <jdbc.url></jdbc.url>
+                <jdbc.username></jdbc.username>
+                <jdbc.password></jdbc.password>
+            </properties>          
         </profile>
-        -->
     </profiles>
 </project>

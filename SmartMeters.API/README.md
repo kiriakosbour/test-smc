@@ -1,347 +1,136 @@
-# Load Profile Push API - HEDNO Integration
+# MDM Push Integration v3.0 - Java Changes
 
-## Critical System for Load Profile Data Push to SAP
+## Overview
 
-This is a **CRITICAL** production system for pushing load profile data from MDMS to SAP using SOAP web services with Exactly Once (EO) delivery guarantee.
+This package contains the updated Java classes implementing the architect's v3 design for the MDM ZFA Push integration.
 
-## Project Folder Structure
+## Key Changes from v2
+
+### Table/Field Renaming
+| Old Name | New Name | Description |
+|----------|----------|-------------|
+| `SMC_MDM_DEBUG_LOG` | `SMC_MDM_SCCURVES_HD` | Master/Header table (not just debug) |
+| `DEBUG_LOG_ID` | `HD_LOG_ID` | FK in curves table |
+| `ERROR_MSG` | `STATUS_MSG` | Empty unless error (κενό εκτός αν πάει κάτι στραβά) |
+
+### New Fields
+| Table | Field | Purpose |
+|-------|-------|---------|
+| `SMC_MDM_SCCURVES_HD` | `SOURCE_SYSTEM` | ZFA or ITRON |
+| `SMC_MDM_SCCURVES_HD` | `SOURCE_TYPE` | MEASURE, ALARM, EVENT |
+| `SMC_MDM_SCCURVES_HD` | `FILE_ID` | ITRON file identifier |
+| `SMC_MDM_SCCURVES_HD` | `FILE_NAME` | ITRON SFTP filename |
+| `SMC_MDM_SCCURVES` | `SECTION_UUID` | Inner XML UUID per channel |
+| `SMC_MDM_SCCURVES` | `DT_CREATE` | Record creation timestamp |
+| `SMC_MDM_SCCURVES` | `DT_UPDATE` | Last update timestamp |
+
+## Files to Replace
+
+Replace these files in your existing `src/main/java/com/hedno/integration/` directory:
 
 ```
-load-profile-push-api/
-│
-├── pom.xml                                         # Maven configuration
-│
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── com/
-│   │   │       └── hedno/
-│   │   │           └── integration/
-│   │   │               ├── entity/                 # Database entities
-│   │   │               │   └── LoadProfileInbound.java
-│   │   │               │
-│   │   │               ├── dao/                    # Data Access Objects
-│   │   │               │   └── LoadProfileInboundDAO.java
-│   │   │               │
-│   │   │               ├── soap/
-│   │   │               │   ├── model/              # SOAP/XML model classes
-│   │   │               │   │   └── UtilitiesTimeSeriesERPItemBulkNotification.java
-│   │   │               │   │
-│   │   │               │   └── generated/          # JAXB generated from WSDL
-│   │   │               │       └── (auto-generated classes)
-│   │   │               │
-│   │   │               ├── service/                # Business services
-│   │   │               │   ├── XMLBuilderService.java
-│   │   │               │   └── SoapClientService.java
-│   │   │               │
-│   │   │               ├── processor/              # Message processors
-│   │   │               │   ├── LoadProfileProcessor.java
-│   │   │               │   └── LoadProfileDataExtractor.java
-│   │   │               │
-│   │   │               ├── servlet/                # HTTP endpoints (optional)
-│   │   │               │   ├── InboundReceiver.java
-│   │   │               │   └── MonitoringServlet.java
-│   │   │               │
-│   │   │               ├── util/                   # Utility classes
-│   │   │               │   ├── ConfigurationManager.java
-│   │   │               │   └── XMLValidator.java
-│   │   │               │
-│   │   │               └── exception/              # Custom exceptions
-│   │   │                   ├── ProcessingException.java
-│   │   │                   └── ValidationException.java
-│   │   │
-│   │   ├── resources/
-│   │   │   ├── wsdl/                              # WSDL files
-│   │   │   │   └── UtilitiesTimeSeriesERPItemBulkNotification_OutService.wsdl
-│   │   │   │
-│   │   │   ├── xsd/                               # XML schemas
-│   │   │   │   └── (schema files if separate from WSDL)
-│   │   │   │
-│   │   │   ├── config/                            # Configuration files
-│   │   │   │   ├── application.properties
-│   │   │   │   └── sap-endpoint.properties
-│   │   │   │
-│   │   │   ├── META-INF/
-│   │   │   │   ├── ejb-jar.xml                    # EJB deployment descriptor
-│   │   │   │   └── persistence.xml                # JPA configuration (if using JPA)
-│   │   │   │
-│   │   │   └── logback.xml                        # Logging configuration
-│   │   │
-│   │   └── webapp/
-│   │       ├── WEB-INF/
-│   │       │   ├── web.xml                        # Web deployment descriptor
-│   │       │   ├── weblogic.xml                   # WebLogic specific config
-│   │       │   └── lib/                           # Additional JARs (if needed)
-│   │       │
-│   │       ├── admin/                             # Admin console pages
-│   │       │   ├── dashboard.jsp
-│   │       │   ├── messages.jsp
-│   │       │   └── config.jsp
-│   │       │
-│   │       ├── monitor/                           # Monitoring pages
-│   │       │   ├── status.jsp
-│   │       │   └── statistics.jsp
-│   │       │
-│   │       ├── error/                             # Error pages
-│   │       │   ├── 404.html
-│   │       │   ├── 500.html
-│   │       │   └── error.html
-│   │       │
-│   │       └── index.html                         # Welcome page
-│   │
-│   └── test/
-│       ├── java/
-│       │   └── com/
-│       │       └── hedno/
-│       │           └── integration/
-│       │               ├── dao/
-│       │               │   └── LoadProfileInboundDAOTest.java
-│       │               │
-│       │               ├── service/
-│       │               │   ├── XMLBuilderServiceTest.java
-│       │               │   └── SoapClientServiceTest.java
-│       │               │
-│       │               ├── processor/
-│       │               │   └── LoadProfileProcessorTest.java
-│       │               │
-│       │               └── integration/            # Integration tests
-│       │                   └── EndToEndTest.java
-│       │
-│       └── resources/
-│           ├── test-data/                         # Test XML files
-│           │   ├── valid-message.xml
-│           │   ├── invalid-message.xml
-│           │   └── sample-response.xml
-│           │
-│           └── test.properties                    # Test configuration
-│
-├── database/
-│   ├── setup.sql                                  # Database creation script
-│   ├── cleanup.sql                                # Cleanup script
-│   ├── test-data.sql                             # Test data insertion
-│   └── migration/                                # Database migration scripts
-│       ├── V1__initial_schema.sql
-│       └── V2__add_indexes.sql
-│
-├── docs/
-│   ├── architecture.md                           # System architecture
-│   ├── deployment-guide.md                       # Deployment instructions
-│   ├── troubleshooting.md                        # Common issues
-│   ├── api-documentation.md                      # API documentation
-│   └── monitoring-guide.md                       # Monitoring setup
-│
-├── scripts/
-│   ├── deploy.sh                                 # Deployment script
-│   ├── start-processor.sh                        # Start processor
-│   ├── stop-processor.sh                         # Stop processor
-│   └── check-status.sh                          # Check system status
-│
-├── config/
-│   ├── weblogic/
-│   │   ├── config.xml                           # WebLogic domain config
-│   │   ├── jdbc-LoadProfileDB.xml               # DataSource configuration
-│   │   └── work-manager.xml                     # Work manager config
-│   │
-│   └── production/
-│       ├── application.properties               # Production properties
-│       └── logback-production.xml              # Production logging
-│
-├── lib/                                         # External dependencies (if not in Maven)
-│   └── (any proprietary JARs)
-│
-├── target/                                      # Maven build output (generated)
-│   ├── classes/
-│   ├── generated-sources/
-│   ├── test-classes/
-│   └── load-profile-push-api.war
-│
-├── logs/                                        # Application logs (runtime)
-│   ├── application.log
-│   ├── error.log
-│   └── audit.log
-│
-├── .gitignore
-├── README.md
-└── LICENSE
+service/
+  └── MdmImportService.java         ← REPLACE
+
+controller/
+  └── LoadProfileReceiverEndpoint.java  ← REPLACE
+
+dto/
+  └── HeaderLogResponse.java        ← NEW (add this)
+
+processor/
+  ├── LoadProfileData.java          ← REPLACE
+  └── LoadProfileDataExtractor.java ← REPLACE
 ```
 
-## Technology Stack
+## Database DDL
 
-- **Java Version**: 1.8 (Java 8)
-- **Application Server**: WebLogic 14.1.1
-- **Database**: Oracle 12c or higher
-- **Build Tool**: Maven 3.6+
-- **Framework**: Java EE (EJB 3.2, Servlet 4.0)
-- **XML Processing**: JAXB 2.3.1
-- **SOAP**: JAX-WS 2.3.1
-- **Logging**: SLF4J + Logback
-- **Connection Pool**: HikariCP (fallback) / WebLogic DataSource (primary)
+The DDL file is in `database/mdm_v3_ddl.sql`. Run this AFTER backing up existing tables.
 
-## Key Components
-
-### 1. **Entity Layer** (`com.hedno.integration.entity`)
-- `LoadProfileInbound`: Main entity representing load profile messages
-
-### 2. **Data Access Layer** (`com.hedno.integration.dao`)
-- `LoadProfileInboundDAO`: Database operations with connection pooling
-
-### 3. **SOAP Model** (`com.hedno.integration.soap.model`)
-- `UtilitiesTimeSeriesERPItemBulkNotification`: JAXB-annotated SOAP message structure
-
-### 4. **Service Layer** (`com.hedno.integration.service`)
-- `XMLBuilderService`: Constructs and validates XML according to WSDL
-- `SoapClientService`: Handles HTTP/SOAP communication with retry logic
-
-### 5. **Processor Layer** (`com.hedno.integration.processor`)
-- `LoadProfileProcessor`: Main EJB processor with timer-based execution
-- `LoadProfileDataExtractor`: Extracts data from XML payloads
-
-## Database Schema
-
+**If tables already exist with data:**
 ```sql
-LOAD_PROFILE_INBOUND
-├── MESSAGE_UUID (VARCHAR2(36), PK)
-├── RAW_PAYLOAD (CLOB)
-├── STATUS (VARCHAR2(20))
-├── RECEIVED_TIMESTAMP (TIMESTAMP)
-├── LAST_ATTEMPT_TIMESTAMP (TIMESTAMP)
-├── ATTEMPT_COUNT (NUMBER(3))
-└── LAST_ERROR_MESSAGE (VARCHAR2(4000))
+-- Rename existing table
+ALTER TABLE SMC_MDM_DEBUG_LOG RENAME TO SMC_MDM_SCCURVES_HD;
+
+-- Add new columns
+ALTER TABLE SMC_MDM_SCCURVES_HD ADD (
+    SOURCE_SYSTEM VARCHAR2(20) DEFAULT 'ZFA',
+    SOURCE_TYPE VARCHAR2(20) DEFAULT 'MEASURE',
+    FILE_ID VARCHAR2(100),
+    FILE_NAME VARCHAR2(255)
+);
+
+-- Rename column
+ALTER TABLE SMC_MDM_SCCURVES_HD RENAME COLUMN ERROR_MSG TO STATUS_MSG;
+
+-- Add constraints
+ALTER TABLE SMC_MDM_SCCURVES_HD ADD CONSTRAINT CK_HD_SOURCE_SYSTEM 
+    CHECK (SOURCE_SYSTEM IN ('ZFA', 'ITRON'));
+ALTER TABLE SMC_MDM_SCCURVES_HD ADD CONSTRAINT CK_HD_SOURCE_TYPE 
+    CHECK (SOURCE_TYPE IN ('MEASURE', 'ALARM', 'EVENT'));
+
+-- Curves table updates
+ALTER TABLE SMC_MDM_SCCURVES RENAME COLUMN DEBUG_LOG_ID TO HD_LOG_ID;
+ALTER TABLE SMC_MDM_SCCURVES ADD (
+    SECTION_UUID VARCHAR2(64),
+    DT_CREATE TIMESTAMP(6) DEFAULT SYSTIMESTAMP,
+    DT_UPDATE TIMESTAMP(6) DEFAULT SYSTIMESTAMP
+);
 ```
 
-## Build Instructions
+## API Endpoints
 
-```bash
-# Clean and build
-mvn clean compile
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/profiles/profiles` | Main ZFA push endpoint |
+| POST | `/api/profiles/profiles/{operation}` | Push with WSDL operation tracking |
+| GET | `/api/profiles/debug/{logId}` | Get debug/header by LOG_ID |
+| GET | `/api/profiles/debug/uuid/{transactionId}` | Get status by MESSAGE_UUID |
+| GET | `/api/profiles/health` | Health check with version |
+| GET | `/api/profiles/ping` | Simple ping (returns "pong") |
 
-# Run tests
-mvn test
+## Build & Deploy
 
-# Package WAR
-mvn package
+### Maven Profiles
 
-# Deploy to WebLogic
-mvn weblogic:deploy
+| Profile | Command | JNDI Datasource | Use Case |
+|---------|---------|-----------------|----------|
+| development | `mvn clean package` | java:comp/env/jdbc/LoadProfileDB | Local development |
+| devWeblogic | `mvn clean package -P devWeblogic` | jdbc/artemis_smc | Dev WebLogic server |
+| production | `mvn clean package -P production` | jdbc/artemis_smc | Production deployment |
+| qa | `mvn clean package -P qa` | jdbc/artemis_smc | QA environment |
+
+### Configuration
+
+The `application.properties` file (in `src/main/resources/config/`) uses Maven resource filtering. 
+Properties are replaced at build time based on the active profile.
+
+Key properties:
+- `datasource.jndi.name` - JNDI name for WebLogic DataSource
+- `jdbc.url` / `jdbc.username` / `jdbc.password` - Direct JDBC (development fallback)
+- `app.environment` - Environment identifier (dev, devWeblogic, prod, qa)
+
+## Response Format
+
+```json
+{
+  "status": "OK",
+  "hdLogId": 123,
+  "processingTimeMs": 45
+}
 ```
 
-## Configuration
+## Key Design Decisions
 
-### Application Properties
-```properties
-# SAP Endpoint Configuration
-sap.endpoint.host=sapd2ojas67.sapservers.local
-sap.endpoint.port=56700
-sap.endpoint.path=/XISOAPAdapter/MessageServlet
-sap.use.https=true
-sap.username=SAP_USER
-sap.password=SAP_PASSWORD
+1. **HD as Master**: The `SMC_MDM_SCCURVES_HD` table is now the master table, not just debug logging
+2. **Multi-source**: Ready for ITRON integration with `SOURCE_SYSTEM` field
+3. **Multi-type**: Supports MEASURE, ALARM, EVENT via `SOURCE_TYPE`
+4. **Section tracking**: `SECTION_UUID` links curve rows to inner XML channels
+5. **Timezone conversion**: UTC to Europe/Athens for DATE_READ and Q-index calculation
+6. **Duplicates allowed**: No unique constraint - downstream ARTEMIS unifies
 
-# Processing Configuration
-processor.interval.ms=60000
-processor.batch.size=10
-processor.max.retries=3
-processor.max.profiles.per.message=10
+## Version History
 
-# Database Configuration (for HikariCP fallback)
-db.url=jdbc:oracle:thin:@localhost:1521:XE
-db.username=LOAD_PROFILE
-db.password=password
-```
-
-### WebLogic DataSource
-
-Configure JNDI DataSource: `jdbc/LoadProfileDB`
-
-## Deployment
-
-1. **Database Setup**
-   ```bash
-   sqlplus sys/password@XE as sysdba
-   @database/setup.sql
-   ```
-
-2. **Build Application**
-   ```bash
-   mvn clean package
-   ```
-
-3. **Deploy to WebLogic**
-   - Via Admin Console: Deployments → Install → Select WAR
-   - Via Maven: `mvn weblogic:deploy`
-   - Via WLST: `scripts/deploy.sh`
-
-4. **Verify Deployment**
-   - Check Admin Console: http://localhost:7001/console
-   - Application URL: http://localhost:7001/load-profile-api
-   - Monitor logs: `tail -f logs/load-profile-api.log`
-
-## Monitoring
-
-### Health Checks
-- Status endpoint: `/monitor/status`
-- Statistics: `/monitor/statistics`
-- Admin dashboard: `/admin/dashboard.jsp`
-
-### Database Monitoring Views
-- `V_LOAD_PROFILE_STATS`: Processing statistics
-- `V_LOAD_PROFILE_ATTENTION`: Messages requiring attention
-- `V_LOAD_PROFILE_DAILY_SUMMARY`: Daily processing summary
-
-## Error Handling
-
-### Processing States
-1. **RECEIVED**: New message awaiting processing
-2. **PROCESSING**: Currently being processed
-3. **SENT_OK**: Successfully sent to SAP
-4. **FAILED_RETRY**: Failed but will retry
-5. **FAILED_DLQ**: Moved to Dead Letter Queue
-
-### Retry Logic
-- Max retries: 3 (configurable)
-- Retry delay: 5 seconds with progressive backoff
-- HTTP 4xx/5xx triggers retry
-- Exactly Once guarantee via UUID in URL
-
-## Security Considerations
-
-1. **Authentication**: Basic Auth for SAP endpoint
-2. **HTTPS**: Enabled by default for SAP communication
-3. **Access Control**: Role-based (admin, monitor)
-4. **Input Validation**: WSDL-based XML validation
-5. **Audit Trail**: All actions logged in LOAD_PROFILE_AUDIT table
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Connection Timeout**
-   - Check network connectivity
-   - Verify SAP endpoint URL
-   - Increase timeout values
-
-2. **XML Validation Errors**
-   - Verify against WSDL
-   - Check UUID format (36 characters)
-   - Validate sender/recipient IDs
-
-3. **Database Connection Issues**
-   - Verify JNDI configuration
-   - Check Oracle listener status
-   - Review connection pool settings
-
-### Log Locations
-- Application: `/opt/weblogic/domains/load-profile/logs/`
-- WebLogic: `/opt/weblogic/domains/load-profile/servers/AdminServer/logs/`
-- Database: Check Oracle alert log
-
-## Support
-
-For issues, contact:
-- Development Team: dev-team@hedno.gr
-- Operations: ops@hedno.gr
-- Emergency: +30-XXX-XXXX
-
-## License
-
-Proprietary - HEDNO © 2025
+- **v1.0**: 3-table design (DEBUG_LOG → DATA_HD → SCCURVES)
+- **v2.0**: 2-table design (DEBUG_LOG → SCCURVES)
+- **v3.0**: Architect's design (SCCURVES_HD → SCCURVES + multi-source support)

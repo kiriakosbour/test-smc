@@ -4,7 +4,6 @@
                   xsi:schemaLocation="http://xmlns.oracle.com/weblogic/weblogic-web-app 
                   http://xmlns.oracle.com/weblogic/weblogic-web-app/1.9/weblogic-web-app.xsd">
 
-    <context-root>/load-profile-api</context-root>
 
     <!-- WebLogic Container Settings -->
     <container-descriptor>

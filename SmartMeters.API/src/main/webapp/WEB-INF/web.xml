@@ -5,6 +5,10 @@
          http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
          version="4.0">
 
+    <listener>
+        <listener-class>com.hedno.integration.service.SFTPDownloadFileService</listener-class>
+    </listener>
+
     <display-name>Load Profile Push API - HEDNO Integration</display-name>
     
     <description>
