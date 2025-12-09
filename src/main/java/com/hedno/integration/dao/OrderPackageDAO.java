@@ -1,5 +1,6 @@
 package com.hedno.integration.dao;
 
+import com.hedno.integration.ConfigService;
 import com.hedno.integration.entity.OrderItem;
 // FIX: Removed bad import:
 // import com.hedno.integration.service.XMLBuilderService.IntervalData; 
@@ -71,7 +72,7 @@ public class OrderPackageDAO {
 
     private void initializeDataSource() {
         // REFACTORED: Use property for JNDI name
-        String jndiName = System.getProperty("jndi.datasource.name", "java:comp/env/jdbc/LoadProfileDB");
+        String jndiName = ConfigService.get("jndi.datasource.name", "java:comp/env/jdbc/LoadProfileDB");
         try {
             InitialContext ctx = new InitialContext();
             this.dataSource = (DataSource) ctx.lookup(jndiName);
@@ -84,15 +85,15 @@ public class OrderPackageDAO {
 
     private void createHikariDataSource() {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(System.getProperty("db.url", "jdbc:oracle:thin:@localhost:1521:XE"));
-        config.setUsername(System.getProperty("db.username", "LOAD_PROFILE"));
-        config.setPassword(System.getProperty("db.password", "password"));
+        config.setJdbcUrl(ConfigService.get("db.url", "jdbc:oracle:thin:@localhost:1521:XE"));
+        config.setUsername(ConfigService.get("db.username", "LOAD_PROFILE"));
+        config.setPassword(ConfigService.get("db.password", "password"));
         config.setDriverClassName("oracle.jdbc.driver.OracleDriver");
-        config.setMaximumPoolSize(Integer.parseInt(System.getProperty("db.pool.size.max", "20")));
-        config.setMinimumIdle(Integer.parseInt(System.getProperty("db.pool.size.min", "5")));
-        config.setConnectionTimeout(Long.parseLong(System.getProperty("db.connection.timeout", "30000")));
-        config.setIdleTimeout(Long.parseLong(System.getProperty("db.pool.idle.timeout", "600000")));
-        config.setMaxLifetime(Long.parseLong(System.getProperty("db.pool.max.lifetime", "1800000")));
+        config.setMaximumPoolSize(Integer.parseInt(ConfigService.get("db.pool.size.max", "20")));
+        config.setMinimumIdle(Integer.parseInt(ConfigService.get("db.pool.size.min", "5")));
+        config.setConnectionTimeout(Long.parseLong(ConfigService.get("db.connection.timeout", "30000")));
+        config.setIdleTimeout(Long.parseLong(ConfigService.get("db.pool.idle.timeout", "600000")));
+        config.setMaxLifetime(Long.parseLong(ConfigService.get("db.pool.max.lifetime", "1800000")));
         
         this.dataSource = new HikariDataSource(config);
         logger.info("OrderPackageDAO: HikariCP DataSource initialized successfully");

@@ -3,6 +3,8 @@ package com.hedno.integration.dao;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hedno.integration.ConfigService;
+
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.sql.DataSource;
@@ -39,12 +41,12 @@ public class ConnectOracleDAO {
      * 
      * @param props Properties containing database configuration
      */
-    public ConnectOracleDAO(Properties props) {
-        this.jndiName = props.getProperty("jndi.datasource.name", "jdbc/artemis_smc");
-        this.driver = props.getProperty("db.driver", "oracle.jdbc.driver.OracleDriver");
-        this.connectString = props.getProperty("db.url", "");
-        this.username = props.getProperty("db.username", "");
-        this.password = props.getProperty("db.password", "");
+    public ConnectOracleDAO() {
+        this.jndiName = ConfigService.get("jndi.datasource.name", "jdbc/artemis_smc");
+        this.driver = ConfigService.get("db.driver", "oracle.jdbc.driver.OracleDriver");
+        this.connectString = ConfigService.get("db.url", "");
+        this.username = ConfigService.get("db.username", "");
+        this.password = ConfigService.get("db.password", "");
 
         logger.debug("ConnectOracleDAO initialized - JNDI: {}, JDBC URL: {}", 
             jndiName, connectString);

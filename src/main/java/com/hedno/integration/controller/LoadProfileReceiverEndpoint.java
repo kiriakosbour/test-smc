@@ -30,7 +30,7 @@ import java.util.Map;
  * @author HEDNO Integration Team
  * @version 3.0
  */
-@Path("/profiles")
+@Path("")
 @Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML})
 @Produces(MediaType.APPLICATION_JSON)
 public class LoadProfileReceiverEndpoint {

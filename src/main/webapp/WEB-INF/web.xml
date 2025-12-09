@@ -5,22 +5,108 @@
          http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
          version="4.0">
 
-    <display-name>SmartMeters Connector</display-name>
-    <description>HEDNO Smart Meters Integration v3.0 - Artemis Data Store</description>
-
-    <!-- SFTP Download Service Listener -->
     <listener>
         <listener-class>com.hedno.integration.service.SFTPDownloadFileService</listener-class>
     </listener>
 
-    <!-- Welcome File -->
-    <welcome-file-list>
-        <welcome-file>index.html</welcome-file>
-    </welcome-file-list>
+    <display-name>Load Profile Push API - HEDNO Integration</display-name>
+    
+    <description>
+        Critical integration system for pushing load profile data to SAP via SOAP.
+        Processes time series data from MDMS and ensures exactly-once delivery.
+    </description>
+
+    <!-- Context Parameters -->
+    <context-param>
+        <param-name>applicationName</param-name>
+        <param-value>LoadProfilePushAPI</param-value>
+    </context-param>
+    
+    <context-param>
+        <param-name>applicationVersion</param-name>
+        <param-value>1.0.0</param-value>
+    </context-param>
+
+    <!-- Database Configuration -->
+    <resource-ref>
+        <description>Oracle Database Connection Pool</description>
+        <res-ref-name>jdbc/artemis_smc</res-ref-name>
+        <res-type>javax.sql.DataSource</res-type>
+        <res-auth>Container</res-auth>
+        <res-sharing-scope>Shareable</res-sharing-scope>
+    </resource-ref>
+
+    <!-- Security Configuration -->
+    <security-constraint>
+        <display-name>Admin Console Security</display-name>
+        <web-resource-collection>
+            <web-resource-name>Admin Resources</web-resource-name>
+            <url-pattern>/admin/*</url-pattern>
+            <http-method>GET</http-method>
+            <http-method>POST</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>admin</role-name>
+        </auth-constraint>
+        <user-data-constraint>
+            <transport-guarantee>CONFIDENTIAL</transport-guarantee>
+        </user-data-constraint>
+    </security-constraint>
+
+    <security-constraint>
+        <display-name>Monitoring Security</display-name>
+        <web-resource-collection>
+            <web-resource-name>Monitoring Resources</web-resource-name>
+            <url-pattern>/monitor/*</url-pattern>
+            <http-method>GET</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>monitor</role-name>
+            <role-name>admin</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+	<security-constraint>
+	    <web-resource-collection>
+	        <web-resource-name>API endpoints</web-resource-name>
+	        <url-pattern>/api/*</url-pattern>
+	    </web-resource-collection>
+	    <auth-constraint>
+	        <role-name>restUsers</role-name>
+	    </auth-constraint>
+	</security-constraint>
+
+
+    <!-- Login Configuration -->
+    <login-config>
+        <auth-method>BASIC</auth-method>
+        <realm-name>myRealm</realm-name>
+    </login-config>
+
+    <!-- Security Roles -->
+    <security-role>
+        <description>Administrator Role</description>
+        <role-name>admin</role-name>
+    </security-role>
+    
+    <security-role>
+        <description>Monitoring Role</description>
+        <role-name>monitor</role-name>
+    </security-role>
+
+	<security-role>
+        <description>Rest Users Role</description>	
+	    <role-name>restUsers</role-name>
+	</security-role>
 
     <!-- Session Configuration -->
     <session-config>
         <session-timeout>30</session-timeout>
+        <cookie-config>
+            <http-only>true</http-only>
+            <secure>true</secure>
+        </cookie-config>
+        <tracking-mode>COOKIE</tracking-mode>
     </session-config>
 
     <!-- Error Pages -->
@@ -28,9 +114,31 @@
         <error-code>404</error-code>
         <location>/error/404.html</location>
     </error-page>
+    
     <error-page>
         <error-code>500</error-code>
         <location>/error/500.html</location>
     </error-page>
+    
+    <error-page>
+        <exception-type>java.lang.Exception</exception-type>
+        <location>/error/error.html</location>
+    </error-page>
+
+    <!-- Welcome File -->
+    <welcome-file-list>
+        <welcome-file>index.html</welcome-file>
+    </welcome-file-list>
+
+    <!-- MIME Mappings -->
+    <mime-mapping>
+        <extension>xml</extension>
+        <mime-type>text/xml</mime-type>
+    </mime-mapping>
+    
+    <mime-mapping>
+        <extension>wsdl</extension>
+        <mime-type>text/xml</mime-type>
+    </mime-mapping>
 
 </web-app>

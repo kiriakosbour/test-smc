@@ -1,6 +1,7 @@
 package com.hedno.integration.processor;
 
 import com.hedno.integration.dao.OrderPackageDAO;
+import com.hedno.integration.ConfigService;
 import com.hedno.integration.dao.IntervalDataDAO;
 import com.hedno.integration.entity.OrderItem;
 import com.hedno.integration.entity.OrderPackage;
@@ -47,9 +48,9 @@ public class OrderProcessor {
     public void initialize() {
         // Load configuration from system properties or application.properties
         this.packageMaxAgeMinutes = Integer.parseInt(
-            System.getProperty("order.processor.delay.minutes", "60"));
+            ConfigService.get("order.processor.delay.minutes", "60"));
         this.packageMaxSize = Integer.parseInt(
-            System.getProperty("order.processor.max.size", "100"));
+            ConfigService.get("order.processor.max.size", "100"));
 
         // Initialize DAOs and Services
         this.orderPackageDAO = new OrderPackageDAO();
@@ -58,7 +59,7 @@ public class OrderProcessor {
 
         // Start timer
         long interval = Long.parseLong(
-            System.getProperty("order.processor.interval.ms", "300000")); // 5 mins
+            ConfigService.get("order.processor.interval.ms", "300000")); // 5 mins
         TimerConfig timerConfig = new TimerConfig("OrderProcessorTimer", false);
         timerService.createIntervalTimer(interval, interval, timerConfig);
 

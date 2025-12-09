@@ -1,5 +1,6 @@
 package com.hedno.integration.dao;
 
+import com.hedno.integration.ConfigService;
 import com.hedno.integration.processor.IntervalData;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -39,7 +40,7 @@ public class IntervalDataDAO {
      * Initializes the data source, falling back to HikariCP if JNDI fails.
      */
 private void initializeDataSource() {
-        String jndiName = System.getProperty("jndi.datasource.name", "java:comp/env/jdbc/LoadProfileDB");
+        String jndiName = ConfigService.get("jndi.datasource.name", "java:comp/env/jdbc/LoadProfileDB");
         try {
             InitialContext ctx = new InitialContext();
             this.dataSource = (DataSource) ctx.lookup(jndiName);
@@ -52,14 +53,14 @@ private void initializeDataSource() {
 
 private void createHikariDataSource() {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(System.getProperty("db.url", "jdbc:oracle:thin:@localhost:1521:XE"));
-        config.setUsername(System.getProperty("db.username", "LOAD_PROFILE"));
-        config.setPassword(System.getProperty("db.password", "password"));
+        config.setJdbcUrl(ConfigService.get("db.url", "jdbc:oracle:thin:@localhost:1521:XE"));
+        config.setUsername(ConfigService.get("db.username", "LOAD_PROFILE"));
+        config.setPassword(ConfigService.get("db.password", "password"));
         config.setDriverClassName("oracle.jdbc.driver.OracleDriver");
         
-        config.setMaximumPoolSize(Integer.parseInt(System.getProperty("db.pool.size.max", "20")));
-        config.setMinimumIdle(Integer.parseInt(System.getProperty("db.pool.size.min", "5")));
-        config.setConnectionTimeout(Long.parseLong(System.getProperty("db.connection.timeout", "30000")));
+        config.setMaximumPoolSize(Integer.parseInt(ConfigService.get("db.pool.size.max", "20")));
+        config.setMinimumIdle(Integer.parseInt(ConfigService.get("db.pool.size.min", "5")));
+        config.setConnectionTimeout(Long.parseLong(ConfigService.get("db.connection.timeout", "30000")));
         
         this.dataSource = new HikariDataSource(config);
     }

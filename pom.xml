@@ -3,23 +3,23 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    
+
     <modelVersion>4.0.0</modelVersion>
-    
+
     <groupId>com.hedno.integration</groupId>
     <artifactId>smartmeters-connector</artifactId>
     <version>3.0.0</version>
     <packaging>war</packaging>
-    
+
     <name>SmartMeters Connector - HEDNO Integration</name>
     <description>Integration for receiving and storing smart meter load profile data (ZFA/ITRON) for Artemis system</description>
-    
+
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        
+
         <!-- Version Management -->
         <oracle.jdbc.version>19.8.0.0</oracle.jdbc.version>
         <servlet.api.version>4.0.1</servlet.api.version>
@@ -33,8 +33,7 @@
         <java-uuid.version>4.0.1</java-uuid.version>
         <xmlunit.version>2.8.3</xmlunit.version>
     </properties>
-    
-    <!-- Repository Configuration -->
+
     <repositories>
         <repository>
             <id>central</id>
@@ -42,8 +41,9 @@
             <url>https://repo1.maven.org/maven2</url>
         </repository>
     </repositories>
-    
+
     <dependencies>
+
         <!-- Java EE APIs (provided by WebLogic) -->
         <dependency>
             <groupId>javax.servlet</groupId>
@@ -51,120 +51,117 @@
             <version>${servlet.api.version}</version>
             <scope>provided</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>javax.ejb</groupId>
             <artifactId>javax.ejb-api</artifactId>
             <version>3.2.2</version>
             <scope>provided</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
             <version>1.3.2</version>
             <scope>provided</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
             <version>2.1.1</version>
             <scope>provided</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
             <version>1</version>
             <scope>provided</scope>
         </dependency>
-        
-        <!-- JAXB for XML processing -->
+
+        <!-- JAXB dependencies (scope overridden in profiles) -->
         <dependency>
             <groupId>javax.xml.bind</groupId>
             <artifactId>jaxb-api</artifactId>
             <version>2.3.1</version>
         </dependency>
-        
         <dependency>
             <groupId>com.sun.xml.bind</groupId>
             <artifactId>jaxb-core</artifactId>
             <version>2.3.0.1</version>
         </dependency>
-        
         <dependency>
             <groupId>com.sun.xml.bind</groupId>
             <artifactId>jaxb-impl</artifactId>
             <version>2.3.3</version>
         </dependency>
-        
         <dependency>
             <groupId>javax.activation</groupId>
             <artifactId>activation</artifactId>
             <version>1.1.1</version>
         </dependency>
-        
+
         <!-- Oracle JDBC Driver -->
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc8</artifactId>
             <version>${oracle.jdbc.version}</version>
         </dependency>
-        
+
         <dependency>
             <groupId>com.oracle.database.nls</groupId>
             <artifactId>orai18n</artifactId>
             <version>${oracle.jdbc.version}</version>
         </dependency>
-        
+
         <!-- Connection Pool -->
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
             <version>${hikari.version}</version>
         </dependency>
-        
+
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
-        
+
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
         </dependency>
-        
+
         <!-- Apache Commons -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>${commons.lang3.version}</version>
         </dependency>
-        
+
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>${commons.io.version}</version>
         </dependency>
-        
+
         <!-- UUID Generation -->
         <dependency>
             <groupId>com.fasterxml.uuid</groupId>
             <artifactId>java-uuid-generator</artifactId>
             <version>${java-uuid.version}</version>
         </dependency>
-        
+
         <!-- SFTP Client -->
         <dependency>
             <groupId>com.github.mwiede</groupId>
             <artifactId>jsch</artifactId>
             <version>0.2.16</version>
         </dependency>
-        
+
         <!-- Testing -->
         <dependency>
             <groupId>junit</groupId>
@@ -172,34 +169,34 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>org.xmlunit</groupId>
             <artifactId>xmlunit-core</artifactId>
             <version>${xmlunit.version}</version>
             <scope>test</scope>
         </dependency>
-        
+
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <version>7.5</version>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
-    
+
     <build>
         <finalName>smartmeters.connector</finalName>
-        
+
         <resources>
-            <!-- Filter properties files with Maven placeholders -->
             <resource>
                 <directory>src/main/resources/config</directory>
                 <includes>
@@ -208,8 +205,7 @@
                 <filtering>true</filtering>
                 <targetPath>config</targetPath>
             </resource>
-            
-            <!-- Copy everything else without filtering -->
+
             <resource>
                 <directory>src/main/resources</directory>
                 <excludes>
@@ -217,7 +213,7 @@
                 </excludes>
             </resource>
         </resources>
-        
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -228,7 +224,7 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
@@ -237,13 +233,13 @@
                     <failOnMissingWebXml>false</failOnMissingWebXml>
                 </configuration>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.2</version>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
@@ -254,13 +250,10 @@
             </plugin>
         </plugins>
     </build>
-    
-    <!-- ================================================================== -->
-    <!-- Maven Profiles for Environment-Specific Configuration             -->
-    <!-- Usage: mvn clean package -P <profile-id>                          -->
-    <!-- ================================================================== -->
+
     <profiles>
-        <!-- Development Profile (default) - Uses direct JDBC -->
+
+        <!-- DEVELOPMENT: package JAXB for WAR -->
         <profile>
             <id>development</id>
             <activation>
@@ -279,53 +272,122 @@
                 <processor.interval.ms>60000</processor.interval.ms>
                 <processor.batch.size>10</processor.batch.size>
             </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>javax.xml.bind</groupId>
+                    <artifactId>jaxb-api</artifactId>
+                    <version>2.3.1</version>
+                    <scope>compile</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-core</artifactId>
+                    <version>2.3.0.1</version>
+                    <scope>compile</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-impl</artifactId>
+                    <version>2.3.3</version>
+                    <scope>compile</scope>
+                </dependency>
+                <dependency>
+                    <groupId>javax.activation</groupId>
+                    <artifactId>activation</artifactId>
+                    <version>1.1.1</version>
+                    <scope>compile</scope>
+                </dependency>
+            </dependencies>
         </profile>
-        
-        <!-- Development WebLogic Profile - Uses JNDI datasource -->
+
+        <!-- WEBLOGIC DEV: provided JAXB -->
         <profile>
             <id>devWeblogic</id>
             <properties>
                 <env>devWeblogic</env>
                 <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
-                <jdbc.url></jdbc.url>
-                <jdbc.username></jdbc.username>
-                <jdbc.password></jdbc.password>
                 <sftp.host>10.138.19.133</sftp.host>
                 <sftp.port>22</sftp.port>
-                <sftp.username>itron_user</sftp.username>
-                <sftp.password>itron_pass</sftp.password>
+                <sftp.username>SFTP-HEDNO-TA</sftp.username>
+                <sftp.password>dG!2eSk@6b</sftp.password>
                 <processor.interval.ms>60000</processor.interval.ms>
                 <processor.batch.size>10</processor.batch.size>
             </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>javax.xml.bind</groupId>
+                    <artifactId>jaxb-api</artifactId>
+                    <version>2.3.1</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-core</artifactId>
+                    <version>2.3.0.1</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-impl</artifactId>
+                    <version>2.3.3</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>javax.activation</groupId>
+                    <artifactId>activation</artifactId>
+                    <version>1.1.1</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
         </profile>
-        
-        <!-- QA Profile -->
+
+        <!-- QA: provided JAXB -->
         <profile>
             <id>qa</id>
             <properties>
                 <env>qa</env>
                 <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
-                <jdbc.url></jdbc.url>
-                <jdbc.username></jdbc.username>
-                <jdbc.password></jdbc.password>
                 <sftp.host>10.138.19.133</sftp.host>
                 <sftp.port>22</sftp.port>
-                <sftp.username>itron_user</sftp.username>
-                <sftp.password>itron_pass</sftp.password>
+                <sftp.username>SFTP-HEDNO-TA</sftp.username>
+                <sftp.password>dG!2eSk@6b</sftp.password>
                 <processor.interval.ms>60000</processor.interval.ms>
                 <processor.batch.size>10</processor.batch.size>
             </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>javax.xml.bind</groupId>
+                    <artifactId>jaxb-api</artifactId>
+                    <version>2.3.1</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-core</artifactId>
+                    <version>2.3.0.1</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-impl</artifactId>
+                    <version>2.3.3</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>javax.activation</groupId>
+                    <artifactId>activation</artifactId>
+                    <version>1.1.1</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
         </profile>
-        
-        <!-- Production Profile -->
+
+        <!-- PRODUCTION: provided JAXB -->
         <profile>
             <id>production</id>
             <properties>
                 <env>prod</env>
                 <jndi.datasource.name>jdbc/artemis_smc</jndi.datasource.name>
-                <jdbc.url></jdbc.url>
-                <jdbc.username></jdbc.username>
-                <jdbc.password></jdbc.password>
                 <sftp.host>10.138.19.133</sftp.host>
                 <sftp.port>22</sftp.port>
                 <sftp.username>itron_user</sftp.username>
@@ -333,6 +395,34 @@
                 <processor.interval.ms>300000</processor.interval.ms>
                 <processor.batch.size>50</processor.batch.size>
             </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>javax.xml.bind</groupId>
+                    <artifactId>jaxb-api</artifactId>
+                    <version>2.3.1</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-core</artifactId>
+                    <version>2.3.0.1</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sun.xml.bind</groupId>
+                    <artifactId>jaxb-impl</artifactId>
+                    <version>2.3.3</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>javax.activation</groupId>
+                    <artifactId>activation</artifactId>
+                    <version>1.1.1</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
         </profile>
+
     </profiles>
+
 </project>

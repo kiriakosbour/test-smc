@@ -28,7 +28,7 @@ import java.util.UUID;
  * @author HEDNO Integration Team
  * @version 3.0
  */
-@Path("/profiles")
+@Path("")
 public class MdmPushController {
 
     private static final Logger logger = LoggerFactory.getLogger(MdmPushController.class);

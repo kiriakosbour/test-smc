@@ -51,18 +51,7 @@ public class MdmImportService {
     private static final int MAX_INTERVALS = 100;
 
     private final LoadProfileDataExtractor extractor;
-    private static final Properties properties = new Properties();
 
-    static {
-        try (InputStream input = MdmImportService.class.getClassLoader()
-                .getResourceAsStream("config/application.properties")) {
-            if (input != null) {
-                properties.load(input);
-            }
-        } catch (Exception e) {
-            log.warn("Could not load application.properties", e);
-        }
-    }
 
     // SQL Statements
     private static final String INSERT_HD_SQL =
@@ -126,7 +115,7 @@ public class MdmImportService {
             String sourceSystem, String sourceType, String fileId, String fileName)
             throws Exception {
 
-        ConnectOracleDAO dao = new ConnectOracleDAO(properties);
+        ConnectOracleDAO dao = new ConnectOracleDAO();
         long hdLogId = 0;
         int recordsProcessed = 0;
         Connection conn = null;
@@ -214,7 +203,7 @@ public class MdmImportService {
      * Get log status by transaction ID (UUID)
      */
     public String getLogStatus(String txId) throws Exception {
-        ConnectOracleDAO dao = new ConnectOracleDAO(properties);
+        ConnectOracleDAO dao = new ConnectOracleDAO();
         try (Connection conn = dao.getConnection();
              PreparedStatement ps = conn.prepareStatement(SELECT_HD_BY_UUID_SQL)) {
             ps.setString(1, txId);
@@ -228,7 +217,7 @@ public class MdmImportService {
      * Get header record by LOG_ID
      */
     public Map<String, Object> getHeaderById(long logId) throws Exception {
-        ConnectOracleDAO dao = new ConnectOracleDAO(properties);
+        ConnectOracleDAO dao = new ConnectOracleDAO();
         try (Connection conn = dao.getConnection();
              PreparedStatement ps = conn.prepareStatement(SELECT_HD_SQL)) {
 
@@ -255,7 +244,7 @@ public class MdmImportService {
      * Get processing summary for a header (list of curve records created)
      */
     public List<Map<String, Object>> getProcessingSummary(long logId) throws Exception {
-        ConnectOracleDAO dao = new ConnectOracleDAO(properties);
+        ConnectOracleDAO dao = new ConnectOracleDAO();
         List<Map<String, Object>> results = new ArrayList<>();
 
         try (Connection conn = dao.getConnection();

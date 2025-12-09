@@ -33,8 +33,6 @@ public class XMLReaderService {
 
     private static final Logger logger = LoggerFactory.getLogger(XMLReaderService.class);
     
-    // Configuration
-    private static final Properties properties = new Properties();
     
     // Constants
     private static final int BATCH_SIZE = 4096;
@@ -49,24 +47,6 @@ public class XMLReaderService {
     private static final String INSERT_SQL_EVENTS = "INSERT INTO ITRON_FILE_EVENTS (F_ID, COLLECTION_SYSTEM_ID, OBJECT_ID, OBJECT_TYPE, EVENT_TYPE, EVENT_DTIME, CAPTURE_DTIME) VALUES (?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_SQL_PROCESS = "UPDATE ITRON_FILE_PROCESS SET PROCESS_RESULT = ?, PROCESS_MESSAGE = ? WHERE F_ID = ?";
 
-    static {
-        try (InputStream input = XMLReaderService.class.getClassLoader()
-                .getResourceAsStream("config/application.properties")) {
-            if (input == null) {
-                throw new RuntimeException("Cannot find application.properties on classpath");
-            }
-            properties.load(input);
-        } catch (IOException e) {
-            throw new RuntimeException("Error loading application.properties", e);
-        }
-    }
-
-    /**
-     * Get property value
-     */
-    public static String get(String key) {
-        return properties.getProperty(key);
-    }
 
     // ========================================================================
     // Process Events XML
@@ -82,7 +62,7 @@ public class XMLReaderService {
         long startTime = System.currentTimeMillis();
         long fileId = 0;
 
-        ConnectOracleDAO dao = new ConnectOracleDAO(properties);
+        ConnectOracleDAO dao = new ConnectOracleDAO();
         Connection conn = null;
         PreparedStatement psProcess = null;
         PreparedStatement psSelect = null;
@@ -197,7 +177,7 @@ public class XMLReaderService {
         long startTime = System.currentTimeMillis();
         long fileId = 0;
 
-        ConnectOracleDAO dao = new ConnectOracleDAO(properties);
+        ConnectOracleDAO dao = new ConnectOracleDAO();
         Connection conn = null;
         PreparedStatement psProcess = null;
         PreparedStatement psSelect = null;
@@ -316,7 +296,7 @@ public class XMLReaderService {
         String workingFilePath = xmlFilePath;
         String fixedFilePath = "READINGS_template_fixed.xml";
 
-        ConnectOracleDAO dao = new ConnectOracleDAO(properties);
+        ConnectOracleDAO dao = new ConnectOracleDAO();
         Connection conn = null;
         PreparedStatement psProcess = null;
         PreparedStatement psSelect = null;

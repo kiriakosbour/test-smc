@@ -1,5 +1,6 @@
 package com.hedno.integration.sftp;
 
+import com.hedno.integration.ConfigService;
 //import com.jcraft.jsch.Channel;
 import com.hedno.integration.service.SFTPDownloadFileService;
 import com.hedno.integration.service.XMLReaderService;
@@ -22,22 +23,7 @@ import static java.util.Properties.*;
 
 public class Itron {
     private static final Logger logger = LoggerFactory.getLogger(Itron.class);
-    private static final Properties properties = new Properties();
-    static {
-        try ( InputStream input = XMLReaderService.class.getClassLoader().getResourceAsStream("config/application.properties") ) {
 
-            if (input == null) {
-                throw new RuntimeException("Cannot find application.properties on classpath");
-            }
-
-            properties.load(input);
-        } catch (IOException e) {
-            throw new RuntimeException("Error loading application.properties", e);
-        }
-    }
-    public static String get(String key) {
-        return properties.getProperty(key);
-    }
     //Itron 10.138.19.133
 
     //https://www.sftp.net/public-online-ftp-servers
@@ -55,10 +41,10 @@ public class Itron {
     private String password = System.getProperty("SFTP.password","geo");
     */
 
-    private String remoteHost = get("sftp.host");
-    private Integer remotePort = Integer.parseInt(get("sftp.port"));
-    private String username = get("sftp.username");
-    private String password = get("sftp.password");
+    private String remoteHost = ConfigService.get("sftp.host");
+    private Integer remotePort = Integer.parseInt(ConfigService.get("sftp.port"));
+    private String username = ConfigService.get("sftp.username");
+    private String password = ConfigService.get("sftp.password");
 
     /*
     private String remoteHost = "10.138.19.133";
