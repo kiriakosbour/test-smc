@@ -18,6 +18,8 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import oracle.jdbc.OracleConnection;
+
 /**
  * Data Access Object for SMC_ORDER_PACKAGES and SMC_ORDER_ITEMS tables.
  * Handles the creation of order items and the batching of order packages.
@@ -132,7 +134,8 @@ public class OrderPackageDAO {
             cs.setString(4, obisCode);
             cs.setString(5, podId);
             if (rawXml != null && !rawXml.isEmpty()) {
-                cs.setCharacterStream(6, new StringReader(rawXml), rawXml.length());
+                // Use Oracle native CLOB to avoid SerialClob incompatibility with WebLogic
+                setClobValue(conn, cs, 6, rawXml);
             } else {
                 cs.setNull(6, Types.CLOB);
             }
@@ -150,6 +153,24 @@ public class OrderPackageDAO {
             logger.error("Error calling SP_SMC_ADD_ORDER_ITEM for profil_bloc_id: {}", profilBlocId, e);
             // Note: Connection should auto-rollback on close if not committed
             throw e; // Re-throw to inform the caller
+        }
+    }
+
+    /**
+     * Set CLOB value using Oracle native CLOB to avoid WebLogic SerialClob issues.
+     * Falls back to setCharacterStream if Oracle unwrap fails.
+     */
+    private void setClobValue(Connection conn, PreparedStatement ps, int paramIndex, String value) throws SQLException {
+        try {
+            // Try to unwrap to get native Oracle connection for CLOB creation
+            Connection oracleConn = conn.unwrap(OracleConnection.class);
+            java.sql.Clob clob = oracleConn.createClob();
+            clob.setString(1, value);
+            ps.setClob(paramIndex, clob);
+        } catch (SQLException e) {
+            // Fallback: if unwrap fails, try setCharacterStream
+            logger.debug("Could not unwrap Oracle connection, using setCharacterStream fallback: {}", e.getMessage());
+            ps.setCharacterStream(paramIndex, new StringReader(value), value.length());
         }
     }
 

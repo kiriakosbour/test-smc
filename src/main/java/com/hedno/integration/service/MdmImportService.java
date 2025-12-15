@@ -14,6 +14,8 @@ import java.sql.*;
 import java.time.*;
 import java.util.*;
 
+import oracle.jdbc.OracleConnection;
+
 /**
  * MDM Import Service v3.0
  * 
@@ -291,7 +293,8 @@ public class MdmImportService {
             ps.setString(idx++, recipientId);
             ps.setTimestamp(idx++, sourceCreationDt);
             if (rawXml != null && !rawXml.isEmpty()) {
-                ps.setCharacterStream(idx++, new StringReader(rawXml), rawXml.length());
+                // Use Oracle native CLOB to avoid SerialClob incompatibility with WebLogic
+                setClobValue(conn, ps, idx++, rawXml);
             } else {
                 ps.setNull(idx++, Types.CLOB);
             }
@@ -305,6 +308,24 @@ public class MdmImportService {
             }
         }
         throw new SQLException("Failed to get generated LOG_ID");
+    }
+
+    /**
+     * Set CLOB value using Oracle native CLOB to avoid WebLogic SerialClob issues.
+     * Falls back to setCharacterStream if Oracle unwrap fails.
+     */
+    private void setClobValue(Connection conn, PreparedStatement ps, int paramIndex, String value) throws SQLException {
+        try {
+            // Try to unwrap to get native Oracle connection for CLOB creation
+            Connection oracleConn = conn.unwrap(OracleConnection.class);
+            java.sql.Clob clob = oracleConn.createClob();
+            clob.setString(1, value);
+            ps.setClob(paramIndex, clob);
+        } catch (SQLException e) {
+            // Fallback: if unwrap fails, try setCharacterStream
+            log.debug("Could not unwrap Oracle connection, using setCharacterStream fallback: {}", e.getMessage());
+            ps.setCharacterStream(paramIndex, new StringReader(value), value.length());
+        }
     }
 
     /**
