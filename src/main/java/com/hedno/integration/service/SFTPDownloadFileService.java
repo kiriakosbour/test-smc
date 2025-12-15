@@ -4,11 +4,8 @@ import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 
 import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.file.Path;
 import java.sql.*;
 
-import com.hedno.integration.dao.IntervalDataDAO;
 import com.hedno.integration.sftp.Itron;
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.SftpException;
@@ -25,8 +22,6 @@ import java.util.Date;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.charset.StandardCharsets;
 
 
 public class SFTPDownloadFileService implements ServletContextListener {

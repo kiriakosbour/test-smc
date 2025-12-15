@@ -44,10 +44,10 @@ public class OrderPackageDAO {
             "   OR (ITEM_COUNT >= ?)"; // Param 2: maxSize
 
     // SQL for getting items for a package
-   private static final String SELECT_ITEMS_BY_PACKAGE_SQL =
-    "SELECT ITEM_ID, PACKAGE_ID, PROFIL_BLOC_ID, DATA_TYPE, OBIS_CODE, POD_ID, STATUS, CREATED_TIMESTAMP, RAW_XML " +
-    "FROM SMC_ORDER_ITEMS " +
-    "WHERE PACKAGE_ID = ?";
+    private static final String SELECT_ITEMS_BY_PACKAGE_SQL = "SELECT ITEM_ID, PACKAGE_ID, PROFIL_BLOC_ID, DATA_TYPE, OBIS_CODE, POD_ID, STATUS, CREATED_TIMESTAMP, RAW_XML "
+            +
+            "FROM SMC_ORDER_ITEMS " +
+            "WHERE PACKAGE_ID = ?";
     // SQL for updating package status
     private static final String UPDATE_PACKAGE_STATUS_SQL = "UPDATE SMC_ORDER_PACKAGES SET STATUS = ? WHERE PACKAGE_ID = ?";
 
@@ -56,7 +56,8 @@ public class OrderPackageDAO {
 
     private DataSource dataSource;
 
-    // FIX: Removed the unused SELECT_INTERVALS_SQL and fetchIntervalDataForBloc method
+    // FIX: Removed the unused SELECT_INTERVALS_SQL and fetchIntervalDataForBloc
+    // method
     // which caused the compilation error.
 
     public OrderPackageDAO() {
@@ -78,7 +79,8 @@ public class OrderPackageDAO {
             this.dataSource = (DataSource) ctx.lookup(jndiName);
             logger.info("OrderPackageDAO: Successfully obtained DataSource from JNDI: {}", jndiName);
         } catch (NamingException e) {
-            logger.warn("OrderPackageDAO: JNDI DataSource '{}' not found, creating HikariCP pool: {}", jndiName, e.getMessage());
+            logger.warn("OrderPackageDAO: JNDI DataSource '{}' not found, creating HikariCP pool: {}", jndiName,
+                    e.getMessage());
             createHikariDataSource();
         }
     }
@@ -94,7 +96,7 @@ public class OrderPackageDAO {
         config.setConnectionTimeout(Long.parseLong(ConfigService.get("db.connection.timeout", "30000")));
         config.setIdleTimeout(Long.parseLong(ConfigService.get("db.pool.idle.timeout", "600000")));
         config.setMaxLifetime(Long.parseLong(ConfigService.get("db.pool.max.lifetime", "1800000")));
-        
+
         this.dataSource = new HikariDataSource(config);
         logger.info("OrderPackageDAO: HikariCP DataSource initialized successfully");
     }
@@ -129,7 +131,11 @@ public class OrderPackageDAO {
             cs.setString(3, dataType);
             cs.setString(4, obisCode);
             cs.setString(5, podId);
-            cs.setClob(6, new StringReader(rawXml)); // <-- NEW PARAMETER
+            if (rawXml != null && !rawXml.isEmpty()) {
+                cs.setCharacterStream(6, new StringReader(rawXml), rawXml.length());
+            } else {
+                cs.setNull(6, Types.CLOB);
+            }
             cs.registerOutParameter(7, Types.NUMERIC); // p_package_id OUT
 
             cs.execute();
@@ -295,12 +301,14 @@ public class OrderPackageDAO {
             return false; // Fail-safe: assume not relevant if DB error
         }
     }
-// SQL for marking a single item as processed
+
+    // SQL for marking a single item as processed
     private static final String UPDATE_SINGLE_ITEM_STATUS_SQL = "UPDATE SMC_ORDER_ITEMS SET STATUS = ? WHERE ITEM_ID = ?";
 
     /**
      * Updates the status of a single item.
      * Used by the synchronous endpoint after intervals are saved.
+     * 
      * @param itemId The item to update
      * @param status The new status
      * @return true if successful

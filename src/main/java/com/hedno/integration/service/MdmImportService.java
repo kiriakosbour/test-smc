@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.*;
@@ -52,30 +53,26 @@ public class MdmImportService {
 
     private final LoadProfileDataExtractor extractor;
 
-
     // SQL Statements
-    private static final String INSERT_HD_SQL =
-        "INSERT INTO SMC_MDM_SCCURVES_HD (" +
-        "SOURCE_SYSTEM, SOURCE_TYPE, FILE_ID, FILE_NAME, MESSAGE_UUID, " +
-        "WSDL_OPERATION, ENDPOINT, SENDER_ID, RECIPIENT_ID, SOURCE_CREATION_DT, " +
-        "STATUS, RAW_XML) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)";
+    private static final String INSERT_HD_SQL = "INSERT INTO SMC_MDM_SCCURVES_HD (" +
+            "SOURCE_SYSTEM, SOURCE_TYPE, FILE_ID, FILE_NAME, MESSAGE_UUID, " +
+            "WSDL_OPERATION, ENDPOINT, SENDER_ID, RECIPIENT_ID, SOURCE_CREATION_DT, " +
+            "STATUS, RAW_XML) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)";
 
-    private static final String UPDATE_HD_STATUS_SQL =
-        "UPDATE SMC_MDM_SCCURVES_HD SET STATUS = ?, STATUS_MSG = ?, " +
-        "RECORDS_PROCESSED = ?, DT_UPDATE = SYSTIMESTAMP WHERE LOG_ID = ?";
+    private static final String UPDATE_HD_STATUS_SQL = "UPDATE SMC_MDM_SCCURVES_HD SET STATUS = ?, STATUS_MSG = ?, " +
+            "RECORDS_PROCESSED = ?, DT_UPDATE = SYSTIMESTAMP WHERE LOG_ID = ?";
 
-    private static final String SELECT_HD_SQL =
-        "SELECT LOG_ID, SOURCE_SYSTEM, SOURCE_TYPE, MESSAGE_UUID, STATUS, STATUS_MSG, " +
-        "RECORDS_PROCESSED, RECEIVED_AT FROM SMC_MDM_SCCURVES_HD WHERE LOG_ID = ?";
+    private static final String SELECT_HD_SQL = "SELECT LOG_ID, SOURCE_SYSTEM, SOURCE_TYPE, MESSAGE_UUID, STATUS, STATUS_MSG, "
+            +
+            "RECORDS_PROCESSED, RECEIVED_AT FROM SMC_MDM_SCCURVES_HD WHERE LOG_ID = ?";
 
-    private static final String SELECT_HD_BY_UUID_SQL =
-        "SELECT STATUS FROM SMC_MDM_SCCURVES_HD WHERE MESSAGE_UUID = ?";
+    private static final String SELECT_HD_BY_UUID_SQL = "SELECT STATUS FROM SMC_MDM_SCCURVES_HD WHERE MESSAGE_UUID = ?";
 
-    private static final String SELECT_CURVES_SUMMARY_SQL =
-        "SELECT POD_ID, SUPPLY_NUM, DATA_CLASS, DATE_READ, SECTION_UUID, " +
-        "SOURCE_CREATION_DT, DT_CREATE " +
-        "FROM SMC_MDM_SCCURVES WHERE HD_LOG_ID = ? ORDER BY DATE_READ, DATA_CLASS";
+    private static final String SELECT_CURVES_SUMMARY_SQL = "SELECT POD_ID, SUPPLY_NUM, DATA_CLASS, DATE_READ, SECTION_UUID, "
+            +
+            "SOURCE_CREATION_DT, DT_CREATE " +
+            "FROM SMC_MDM_SCCURVES WHERE HD_LOG_ID = ? ORDER BY DATE_READ, DATA_CLASS";
 
     public MdmImportService() {
         this.extractor = new LoadProfileDataExtractor();
@@ -88,27 +85,27 @@ public class MdmImportService {
     /**
      * Process ZFA measurement data (main entry point for ZFA push)
      * 
-     * @param xmlBody The raw XML payload
-     * @param endpoint The endpoint URL that received the request
+     * @param xmlBody       The raw XML payload
+     * @param endpoint      The endpoint URL that received the request
      * @param wsdlOperation The WSDL operation name (optional)
      * @return The HD_LOG_ID of the created header record
      */
     public long processZfaMeasurement(String xmlBody, String endpoint, String wsdlOperation)
             throws Exception {
         return processXmlPayload(xmlBody, endpoint, wsdlOperation,
-            SOURCE_SYSTEM_ZFA, SOURCE_TYPE_MEASURE, null, null);
+                SOURCE_SYSTEM_ZFA, SOURCE_TYPE_MEASURE, null, null);
     }
 
     /**
      * Generic entry point for any source/type combination
      * 
-     * @param xmlBody The raw XML payload
-     * @param endpoint The endpoint URL
+     * @param xmlBody       The raw XML payload
+     * @param endpoint      The endpoint URL
      * @param wsdlOperation WSDL operation name
-     * @param sourceSystem ZFA or ITRON
-     * @param sourceType MEASURE, ALARM, or EVENT
-     * @param fileId File ID (for ITRON)
-     * @param fileName File name (for ITRON)
+     * @param sourceSystem  ZFA or ITRON
+     * @param sourceType    MEASURE, ALARM, or EVENT
+     * @param fileId        File ID (for ITRON)
+     * @param fileName      File name (for ITRON)
      * @return The HD_LOG_ID of the created header record
      */
     public long processXmlPayload(String xmlBody, String endpoint, String wsdlOperation,
@@ -129,11 +126,11 @@ public class MdmImportService {
 
             // 2. Insert header record (PENDING status)
             hdLogId = insertHeader(conn, sourceSystem, sourceType, fileId, fileName,
-                metadata.messageUuid, wsdlOperation, endpoint,
-                metadata.senderId, metadata.recipientId, metadata.creationDateTime, xmlBody);
+                    metadata.messageUuid, wsdlOperation, endpoint,
+                    metadata.senderId, metadata.recipientId, metadata.creationDateTime, xmlBody);
 
             log.info("Created HD record {} for {} {} message UUID: {}",
-                hdLogId, sourceSystem, sourceType, metadata.messageUuid);
+                    hdLogId, sourceSystem, sourceType, metadata.messageUuid);
 
             // 3. Parse XML and extract profiles
             List<LoadProfileData> profiles = extractor.extractFromXml(xmlBody);
@@ -147,7 +144,7 @@ public class MdmImportService {
             // 4. Process each profile (channel)
             for (LoadProfileData profile : profiles) {
                 List<CurveRow> curveRows = transformToCurveRows(profile, hdLogId,
-                    sourceSystem, metadata.creationDateTime);
+                        sourceSystem, metadata.creationDateTime);
 
                 for (CurveRow row : curveRows) {
                     insertCurveRow(conn, row);
@@ -160,7 +157,7 @@ public class MdmImportService {
             conn.commit();
 
             log.info("Successfully processed {} curve records for HD_LOG_ID: {}",
-                recordsProcessed, hdLogId);
+                    recordsProcessed, hdLogId);
 
             return hdLogId;
 
@@ -181,7 +178,7 @@ public class MdmImportService {
                 try {
                     conn.setAutoCommit(true);
                     updateHeaderStatus(conn, hdLogId, "ERROR",
-                        truncateMessage(e.getMessage(), 4000), recordsProcessed);
+                            truncateMessage(e.getMessage(), 4000), recordsProcessed);
                 } catch (Exception ex) {
                     log.error("Failed to update error status", ex);
                 }
@@ -205,7 +202,7 @@ public class MdmImportService {
     public String getLogStatus(String txId) throws Exception {
         ConnectOracleDAO dao = new ConnectOracleDAO();
         try (Connection conn = dao.getConnection();
-             PreparedStatement ps = conn.prepareStatement(SELECT_HD_BY_UUID_SQL)) {
+                PreparedStatement ps = conn.prepareStatement(SELECT_HD_BY_UUID_SQL)) {
             ps.setString(1, txId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getString(1) : "NOT_FOUND";
@@ -219,7 +216,7 @@ public class MdmImportService {
     public Map<String, Object> getHeaderById(long logId) throws Exception {
         ConnectOracleDAO dao = new ConnectOracleDAO();
         try (Connection conn = dao.getConnection();
-             PreparedStatement ps = conn.prepareStatement(SELECT_HD_SQL)) {
+                PreparedStatement ps = conn.prepareStatement(SELECT_HD_SQL)) {
 
             ps.setLong(1, logId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -248,7 +245,7 @@ public class MdmImportService {
         List<Map<String, Object>> results = new ArrayList<>();
 
         try (Connection conn = dao.getConnection();
-             PreparedStatement ps = conn.prepareStatement(SELECT_CURVES_SUMMARY_SQL)) {
+                PreparedStatement ps = conn.prepareStatement(SELECT_CURVES_SUMMARY_SQL)) {
 
             ps.setLong(1, logId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -280,7 +277,7 @@ public class MdmImportService {
             String endpoint, String senderId, String recipientId,
             Timestamp sourceCreationDt, String rawXml) throws SQLException {
 
-        String[] generatedColumns = {"LOG_ID"};
+        String[] generatedColumns = { "LOG_ID" };
         try (PreparedStatement ps = conn.prepareStatement(INSERT_HD_SQL, generatedColumns)) {
             int idx = 1;
             ps.setString(idx++, sourceSystem);
@@ -293,8 +290,11 @@ public class MdmImportService {
             ps.setString(idx++, senderId);
             ps.setString(idx++, recipientId);
             ps.setTimestamp(idx++, sourceCreationDt);
-            ps.setClob(idx++, new javax.sql.rowset.serial.SerialClob(
-                rawXml != null ? rawXml.toCharArray() : new char[0]));
+            if (rawXml != null && !rawXml.isEmpty()) {
+                ps.setCharacterStream(idx++, new StringReader(rawXml), rawXml.length());
+            } else {
+                ps.setNull(idx++, Types.CLOB);
+            }
 
             ps.executeUpdate();
 
@@ -337,7 +337,8 @@ public class MdmImportService {
 
         for (IntervalData interval : profile.getIntervals()) {
             LocalDateTime utcStart = interval.getStartDateTime();
-            if (utcStart == null) continue;
+            if (utcStart == null)
+                continue;
 
             // Convert UTC to Greek local time
             ZonedDateTime utcZoned = utcStart.atZone(UTC_ZONE);
@@ -497,7 +498,8 @@ public class MdmImportService {
     }
 
     private String truncateMessage(String msg, int maxLength) {
-        if (msg == null) return null;
+        if (msg == null)
+            return null;
         return msg.length() > maxLength ? msg.substring(0, maxLength - 3) + "..." : msg;
     }
 
@@ -533,31 +535,74 @@ public class MdmImportService {
         private final Map<Integer, String> sValues = new HashMap<>();
 
         // Getters and setters
-        public long getHdLogId() { return hdLogId; }
-        public void setHdLogId(long hdLogId) { this.hdLogId = hdLogId; }
+        public long getHdLogId() {
+            return hdLogId;
+        }
 
-        public String getSectionUuid() { return sectionUuid; }
-        public void setSectionUuid(String sectionUuid) { this.sectionUuid = sectionUuid; }
+        public void setHdLogId(long hdLogId) {
+            this.hdLogId = hdLogId;
+        }
 
-        public String getPodId() { return podId; }
-        public void setPodId(String podId) { this.podId = podId; }
+        public String getSectionUuid() {
+            return sectionUuid;
+        }
 
-        public String getSupplyNum() { return supplyNum; }
-        public void setSupplyNum(String supplyNum) { this.supplyNum = supplyNum; }
+        public void setSectionUuid(String sectionUuid) {
+            this.sectionUuid = sectionUuid;
+        }
 
-        public LocalDate getDateRead() { return dateRead; }
-        public void setDateRead(LocalDate dateRead) { this.dateRead = dateRead; }
+        public String getPodId() {
+            return podId;
+        }
 
-        public String getDataClass() { return dataClass; }
-        public void setDataClass(String dataClass) { this.dataClass = dataClass; }
+        public void setPodId(String podId) {
+            this.podId = podId;
+        }
 
-        public String getUnitMeasure() { return unitMeasure; }
-        public void setUnitMeasure(String unitMeasure) { this.unitMeasure = unitMeasure; }
+        public String getSupplyNum() {
+            return supplyNum;
+        }
 
-        public String getSourceSystem() { return sourceSystem; }
-        public void setSourceSystem(String sourceSystem) { this.sourceSystem = sourceSystem; }
+        public void setSupplyNum(String supplyNum) {
+            this.supplyNum = supplyNum;
+        }
 
-        public Timestamp getSourceCreationDt() { return sourceCreationDt; }
+        public LocalDate getDateRead() {
+            return dateRead;
+        }
+
+        public void setDateRead(LocalDate dateRead) {
+            this.dateRead = dateRead;
+        }
+
+        public String getDataClass() {
+            return dataClass;
+        }
+
+        public void setDataClass(String dataClass) {
+            this.dataClass = dataClass;
+        }
+
+        public String getUnitMeasure() {
+            return unitMeasure;
+        }
+
+        public void setUnitMeasure(String unitMeasure) {
+            this.unitMeasure = unitMeasure;
+        }
+
+        public String getSourceSystem() {
+            return sourceSystem;
+        }
+
+        public void setSourceSystem(String sourceSystem) {
+            this.sourceSystem = sourceSystem;
+        }
+
+        public Timestamp getSourceCreationDt() {
+            return sourceCreationDt;
+        }
+
         public void setSourceCreationDt(Timestamp sourceCreationDt) {
             this.sourceCreationDt = sourceCreationDt;
         }
