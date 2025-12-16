@@ -157,19 +157,25 @@ public class OrderPackageDAO {
     }
 
     /**
-     * Set CLOB value using Oracle native CLOB to avoid WebLogic SerialClob issues.
-     * Falls back to setCharacterStream if Oracle unwrap fails.
+     * Set CLOB value avoiding WebLogic SerialClob issues.
+     * Uses setString for smaller values, Oracle native CLOB for larger ones.
      */
     private void setClobValue(Connection conn, PreparedStatement ps, int paramIndex, String value) throws SQLException {
+        // For values under 32KB, setString works directly without CLOB conversion issues
+        if (value.length() < 32000) {
+            ps.setString(paramIndex, value);
+            return;
+        }
+
+        // For larger values, try Oracle native CLOB
         try {
-            // Try to unwrap to get native Oracle connection for CLOB creation
             Connection oracleConn = conn.unwrap(OracleConnection.class);
             java.sql.Clob clob = oracleConn.createClob();
             clob.setString(1, value);
             ps.setClob(paramIndex, clob);
         } catch (SQLException e) {
-            // Fallback: if unwrap fails, try setCharacterStream
-            logger.debug("Could not unwrap Oracle connection, using setCharacterStream fallback: {}", e.getMessage());
+            // Last resort fallback
+            logger.debug("Could not unwrap Oracle connection: {}", e.getMessage());
             ps.setCharacterStream(paramIndex, new StringReader(value), value.length());
         }
     }
