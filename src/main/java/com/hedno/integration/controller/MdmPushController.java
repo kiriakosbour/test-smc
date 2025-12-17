@@ -10,6 +10,9 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +42,14 @@ public class MdmPushController {
         this.importService = new MdmImportService();
     }
 
+    @POST
+    @Path("/profilesOpen")
+    @Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML, "application/soap+xml"})
+    @Produces(MediaType.APPLICATION_XML)
+    public Response pushLoadProfileOpen(InputStream xmlStream, @Context HttpServletRequest request) {
+    	return pushLoadProfile(xmlStream, request);
+    }
+    
     /**
      * Main push endpoint for load profile data
      * Accepts XML payload from ZFA or other MDM sources
@@ -47,7 +58,7 @@ public class MdmPushController {
     @Path("/profiles")
     @Consumes({MediaType.APPLICATION_XML, MediaType.TEXT_XML, "application/soap+xml"})
     @Produces(MediaType.APPLICATION_XML)
-    public Response pushLoadProfile(@Context HttpServletRequest request) {
+    public Response pushLoadProfile(InputStream bodyStream, @Context HttpServletRequest request) {
         String txId = UUID.randomUUID().toString().toUpperCase();
         long startTime = System.currentTimeMillis();
 
@@ -56,7 +67,7 @@ public class MdmPushController {
 
         try {
             // Read XML body
-            String xmlBody = readRequestBody(request);
+            String xmlBody = readRequestBody(bodyStream);
 
             if (xmlBody == null || xmlBody.trim().isEmpty()) {
                 logger.warn("Empty request body received - TxId: {}", txId);
@@ -171,13 +182,16 @@ public class MdmPushController {
     // Helper Methods
     // ========================================================================
 
-    private String readRequestBody(HttpServletRequest request) throws Exception {
+    private String readRequestBody(InputStream bodyStream) throws Exception {
         StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = request.getReader()) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
-            }
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(bodyStream, StandardCharsets.UTF_8.name()))) {
+
+           String line;
+
+           while ((line = reader.readLine()) != null) {
+               sb.append(line).append('\n');
+           }
         }
         return sb.toString();
     }

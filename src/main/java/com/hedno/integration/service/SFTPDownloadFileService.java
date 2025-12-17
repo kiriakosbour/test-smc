@@ -6,6 +6,8 @@ import javax.servlet.ServletContextListener;
 import java.io.*;
 import java.sql.*;
 
+import com.hedno.integration.ConfigService;
+
 import com.hedno.integration.sftp.Itron;
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.SftpException;
@@ -24,6 +26,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Getting data from SFTP SEVER.
+ * This is used when we need to parse XML data to store into the database.
+ *
+ * @author HEDNO Integration Team
+ * @version 1.0
+ */
 public class SFTPDownloadFileService implements ServletContextListener {
     private static final Logger logger = LoggerFactory.getLogger(SFTPDownloadFileService.class);
 
@@ -39,25 +48,32 @@ public class SFTPDownloadFileService implements ServletContextListener {
 
     ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
+    /**
+     *
+     * @param arg0
+     */
     @Override
     public void contextInitialized(ServletContextEvent arg0) {
         try {
             logger.info("=============>SFTPDownloadFileService.contextInitialized()");
-            startExecution(0,5,0);
+            int schHours    = Integer.parseInt(ConfigService.get("sch.hours"));
+            int schMinutes  = Integer.parseInt( ConfigService.get("sch.minutes") );
+            int schSeconds  = Integer.parseInt(ConfigService.get("sch.seconds") );
+            startExecution(schHours,schMinutes,schSeconds);
         } catch (Exception e) {
-            System.out.println("=====>Error In SFTPDownloadFileService.contextInitialized() :" + e.getMessage());
+            logger.error("=====>Error In SFTPDownloadFileService.contextInitialized() :" + e.getMessage());
         }
     }
 
     public void startExecution(int targetHour, int targetMin, int targetSec){
         Runnable taskSchedule =  () -> {
             try {
-                System.out.println("====>About to Thread.initiateProcess() :"  +  new Date() );
+                logger.info("====>Start Thread.initiateProcess() :"  +  new Date() );
                 initiateProcess();
-                System.out.println("====>About to startExecution :"  +  new Date() );
+                logger.info("====>About to startExecution :"  +  new Date() );
                 startExecution(0,targetMin,0);
             } catch (Exception e) {
-                System.out.println("=====>Error In Thread.initiateProcess() :" + e.getMessage());
+                logger.error("=====>Error In Thread.initiateProcess() :" + e.getMessage());
             }
         };
         scheduler.schedule(taskSchedule, targetMin, TimeUnit.MINUTES);
@@ -71,10 +87,10 @@ public class SFTPDownloadFileService implements ServletContextListener {
             channelSftp.connect();
             //channelSftp.put(localFile, remoteDir + "jschFile.txt");
             //channelSftp.get(remoteFile, localDir + "jschFile.txt");
-            System.out.println("shell channel connected.... " + channelSftp.isConnected());
+            logger.info("shell channel connected.... " + channelSftp.isConnected());
 
             //channelSftp.lcd(localDir);
-            System.out.println("channelSftp.pwd() :" + channelSftp.pwd());
+            logger.info("channelSftp.pwd() :" + channelSftp.pwd());
             return 1;
         } catch (SftpException e) {
             //throw new RuntimeException(e);
@@ -95,80 +111,86 @@ public class SFTPDownloadFileService implements ServletContextListener {
             LocalDateTime now = LocalDateTime.now();
 
             // Get a listing  of the remote directory (ls) for Specific file
-            //Vector<ChannelSftp.LsEntry> list = channelSftp.ls(remoteSearchRootPath);
-            Vector<ChannelSftp.LsEntry> list = channelSftp.ls(remoteSearchRootPath + "/" + remotePath + "/");
-
-            //Vector<ChannelSftp.LsEntry> list = channelSftp.ls(remoteSearchRootPath  + " " + remoteSearchFile);
-            //Vector<ChannelSftp.LsEntry> list = channelSftp.ls(remoteSearchFile);
-
-
+            //Vector<ChannelSftp.LsEntry> list = channelSftp.ls(remoteSearchRootPath + "/" + remotePath + "/" + fileSearchPattern);
             //Vector<ChannelSftp.LsEntry> list = channelSftp.ls("./pub/example");
 
-            numFilesRead = list.size();
-            System.out.println("list.size() :" + numFilesRead);
+            Vector<ChannelSftp.LsEntry> lstFiles = channelSftp.ls(remoteSearchRootPath + "/" + remotePath );
+            //Vector<ChannelSftp.LsEntry> lstFiles = channelSftp.ls(remoteSearchRootPath  );
+            //Vector<ChannelSftp.LsEntry> lstFiles = channelSftp.ls(remoteSearchRootPath + "/" + "sftp/Export" );
+
+            numFilesRead = 0;
+            //Find number of Files , Excluding Directories and . , ..
+            for( int i=0;  i < lstFiles.size(); i++ ) {
+                ChannelSftp.LsEntry entry = (ChannelSftp.LsEntry) lstFiles.get(i);
+                logger.info(i + " entry.getFilename() :" + entry.getFilename() + " isDir:" + entry.getAttrs().isDir());
+                if ( ".".equals(entry.getFilename()) || "..".equals(entry.getFilename()) || entry.getAttrs().isDir() ) {
+                    continue;
+                }
+                numFilesRead++;
+            }
+            logger.info("In remote Path :" + remotePath + " FilesRead :" + numFilesRead);
             // iterate through objects in list, identifying specific file names
 
             //Create BackUp directories Only when files found
-            //-2 is used Because . and .. are Automatically Created
-            if (numFilesRead - 2 != 0) {
+            if (numFilesRead  != 0) {
                 backUpRemoteDir =  dtf.format(now).toString().replace('/','_').replace(' ','_').replace(':','_');
                 channelSftp.mkdir(remoteSearchRootPath + "/" + remotePath + "/" + backUpRemoteDir);
             }
-            for (ChannelSftp.LsEntry oListItem : list) {
+            for (ChannelSftp.LsEntry oListItem : lstFiles) {
                 //logger.info(oListItem.toString());
-                //System.out.println(oListItem.toString() + " isDirectory:" + oListItem.getAttrs().isDir());
+                //logger.info(oListItem.toString() + " isDirectory:" + oListItem.getAttrs().isDir());
 
                 //check if it is NOT a directory
                 if (!oListItem.getAttrs().isDir()) {
-                    //System.out.println("get :" + oListItem.getFilename());
+                    //logger.info("get :" + oListItem.getFilename());
                     if (oListItem.getFilename().toUpperCase().contains(fileExt)) {
                         //channelSftp.get(remoteSearchRootPath + "/pub/example/" + oListItem.getFilename(), oListItem.getFilename());
-                        channelSftp.get(remoteSearchRootPath + "/" + remotePath + "/"  + oListItem.getFilename(), oListItem.getFilename());
-                        System.out.println("get :" + oListItem.getFilename());
+                        channelSftp.get(remoteSearchRootPath + "/" + remotePath + "/" + oListItem.getFilename(), oListItem.getFilename());
+                        logger.info("get :" + oListItem.getFilename());
 
                         //file Will Be retrieved from SFTP server
                         //Going to be processed(validation of XML structure and possible fixed) and loaded with detailed Data into DB
-                        int processReadingsXML = -11;
+                        int processReadingXML = -11;
                         int processAlarmsXML = -11;
                         int processEventsXML = -11;
 
                         switch (remotePath) {
-                            case "readings":
-                                processReadingsXML = XMLReaderService.processReadingsXML(oListItem.getFilename());
-                                System.out.println("processReadingsXML :" + processReadingsXML);
+                            case "sftp/Export/Reading":
+                                processReadingXML = XMLReaderService.processReadingsXML(oListItem.getFilename());
+                                logger.info("processReadingXML :" + processReadingXML);
                                 break;
-                            case "alarms":
+                            case "sftp/Export/Alarms":
                                 processAlarmsXML = XMLReaderService.processAlarmsXML(oListItem.getFilename());
-                                System.out.println("processAlarmsXML :" + processAlarmsXML);
+                                logger.info("processAlarmsXML :" + processAlarmsXML);
                                 break;
-                            case "events":
+                            case "sftp/Export/Events":
                                 processEventsXML = XMLReaderService.processEventsXML(oListItem.getFilename());
-                                System.out.println("processEventsXML :" + processEventsXML);
+                                logger.info("processEventsXML :" + processEventsXML);
                                 break;
                         }
                         /*
-                        System.out.println("File :" + oListItem.getFilename() + " to be del from Current dir :::::::::::::::::::::::" + new java.io.File(".").getCanonicalPath());
+                        logger.info("File :" + oListItem.getFilename() + " to be del from Current dir :::::::::::::::::::::::" + new java.io.File(".").getCanonicalPath());
                         String delCommand = "cmd.exe /c scr_Del.cmd " + oListItem.getFilename();
                         Runtime.getRuntime().exec("del " + oListItem.getFilename());
                         */
                         //file retrieved from SFTP server , going to be Loaded as CLOB into DB
                         //int processLoadCLOBIntoDB = -11;
                         //processLoadCLOBIntoDB = loadCLOBIntoDB(XMLReaderService.objConn.getPreparedStatement(INSERT_SQL_CLOB) , oListItem.getFilename()  );
-                        //System.out.println("processLoadCLOBIntoDB :" + processLoadCLOBIntoDB);
+                        //logger.info("processLoadCLOBIntoDB :" + processLoadCLOBIntoDB);
 
-                        if ( processReadingsXML == 0 || processAlarmsXML == 0 || processEventsXML == 0 ) {
+                        if (processReadingXML == 0 || processAlarmsXML == 0 || processEventsXML == 0) {
                             //0:success
-                            channelSftp.put(oListItem.getFilename(),remoteSearchRootPath + "/" + remotePath+ "/"+ backUpRemoteDir  );
-                            channelSftp.rm(remoteSearchRootPath + "/" + remotePath + "/" + oListItem.getFilename() );
+                            channelSftp.put(oListItem.getFilename(), remoteSearchRootPath + "/" + remotePath + "/" + backUpRemoteDir);
+                            channelSftp.rm(remoteSearchRootPath + "/" + remotePath + "/" + oListItem.getFilename());
                         }
                         //Delete file
                         File file = new File(oListItem.getFilename());
                         if (file.delete()) {
-                            System.out.println(oListItem.getFilename() + " deleted successfully");
+                            logger.info(oListItem.getFilename() + " deleted successfully from " + new java.io.File(".").getCanonicalPath());
+                        } else {
+                            logger.info(oListItem.getFilename() + " failed to be deleted");
                         }
-                        else {
-                            System.out.println(oListItem.getFilename() + " failed to be deleted");
-                        }
+
                     }
                 }
             }
@@ -177,7 +199,6 @@ public class SFTPDownloadFileService implements ServletContextListener {
         } finally {
             // disconnect session.  If this is not done, the job will hang and leave log files locked
             //session.disconnect();
-
         }
     }
 
@@ -204,18 +225,17 @@ public class SFTPDownloadFileService implements ServletContextListener {
 
             ps.executeUpdate();
 
-
-            System.out.println(in_xmlFile + " inserted as CLOB successfully .");
+            logger.info(in_xmlFile + " inserted as CLOB successfully .");
 
             totalDuration = System.currentTimeMillis() - startTime;
-            System.out.println("Duration :" + (totalDuration / 1000) / 60 + " Mins");
-            System.out.println("Duration :" + (totalDuration / 1000) + " Secs");
-            System.out.println("Duration :" + totalDuration + " Millisecs");
+            logger.info("Duration :" + (totalDuration / 1000) / 60 + " Mins");
+            logger.info("Duration :" + (totalDuration / 1000) + " Secs");
+            logger.info("Duration :" + totalDuration + " Millisecs");
 
             fileReader.close();
             return 1;
         }catch (Exception ex) {
-            System.out.println("An error occurred: " + ex.getMessage());
+            logger.info("An error occurred: " + ex.getMessage());
             return -1;
         }
     }
@@ -234,14 +254,22 @@ public class SFTPDownloadFileService implements ServletContextListener {
                     //backUpRemoteDir =  dtf.format(now).toString().replace('/','_').replace(' ','_').replace(':','_');
                     //channelSftp.mkdir(remoteSearchPath + "/" + backUpRemoteDir);
 
-                    //Execute Main Operation for each Path
-                    downloadFiles("readings");
-                    downloadFiles("events");
-                    downloadFiles("alarms");
+                    //----------------Execute Main Operation for each Path
+                    //downloadFiles("sftp/Export/AMI_DaReadintaExport/g");
+                    //downloadFiles("sftp/Export/AMI_DataExport");
+                    /*
+                    downloadFiles("/sftp/Export/Reading");
+                    downloadFiles("/sftp/Export/Alarms");
+                    downloadFiles("/sftp/Export/Events");
+                    */
+                    //logger.info("========>Search Remote Dir :" + ConfigService.get("sftp.fldr.readings") );
+                    downloadFiles(ConfigService.get("sftp.fldr.readings"));
+                    downloadFiles(ConfigService.get("sftp.fldr.events"));
+                    downloadFiles(ConfigService.get("sftp.fldr.alarms"));
                 }
                 /*
                 catch(SftpException sftpe){
-                    System.out.println("sftpe.id:" + sftpe.id + " message:" + sftpe.getMessage() );
+                    logger.info("sftpe.id:" + sftpe.id + " message:" + sftpe.getMessage() );
                     if (sftpe.getMessage().contains("Already exists") && sftpe.id == 4 ){
                     }
                     else {
@@ -250,16 +278,18 @@ public class SFTPDownloadFileService implements ServletContextListener {
                 }
                 */
                 catch(Exception e){
-                    System.out.println(e.getMessage());
+                    logger.error(e.getMessage());
                 }
-
             }
         } catch(Exception e){
             logger.error(e.getMessage());
             e.printStackTrace();
         }  finally {
-            channelSftp.exit();
-            System.out.println("channelSftp.exit()");
+            if (channelSftp != null){
+                channelSftp.exit();
+                channelSftp.disconnect();
+            }
+            logger.info("channelSftp.exit()");
         }
     }
 }

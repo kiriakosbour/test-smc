@@ -21,22 +21,22 @@ import java.util.UUID;
  * 
  * Supports:
  * - ZFA format (UtilitiesTimeSeriesERPItemBulkNotification)
+ * - UtilitiesTimeSeriesERPItemNotificationMessage format
  * - Generic interval data format
  * 
  * @author HEDNO Integration Team
- * @version 3.0
+ * @version 3.1 - Fixed to handle actual XML structure
  */
 public class LoadProfileDataExtractor {
 
     private static final Logger logger = LoggerFactory.getLogger(LoadProfileDataExtractor.class);
 
     // XML namespaces
-    private static final String NS_SOAP = "http://schemas.xmlsoap.org/soap/envelope/";
-    private static final String NS_ZFA = "http://sap.com/xi/SAPGlobal20/Global";
+    private static final String NS_SAP_GLOBAL = "http://sap.com/xi/SAPGlobal20/Global";
 
     // Date formatters
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
-    private static final DateTimeFormatter ZFA_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+    private static final DateTimeFormatter UTC_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
     private final DocumentBuilderFactory factory;
 
@@ -62,23 +62,38 @@ public class LoadProfileDataExtractor {
 
         // Try to extract message UUID from header
         String messageUuid = extractMessageUuid(doc);
+        logger.debug("Extracted message UUID: {}", messageUuid);
 
-        // Find UtilitiesTimeSeriesERPItemBulkNotificationMessage elements
-        NodeList messageNodes = doc.getElementsByTagNameNS(NS_ZFA, 
-            "UtilitiesTimeSeriesERPItemBulkNotificationMessage");
+        // Strategy 1: Find UtilitiesTimeSeriesERPItemNotificationMessage elements
+        NodeList messageNodes = findMessageNodes(doc);
+        logger.debug("Found {} notification message elements", messageNodes.getLength());
 
-        if (messageNodes.getLength() == 0) {
-            // Try without namespace
-            messageNodes = doc.getElementsByTagName("UtilitiesTimeSeriesERPItemBulkNotificationMessage");
+        if (messageNodes.getLength() > 0) {
+            for (int i = 0; i < messageNodes.getLength(); i++) {
+                Element messageEl = (Element) messageNodes.item(i);
+                LoadProfileData profile = extractProfileFromNotificationMessage(messageEl, messageUuid);
+                if (profile != null && !profile.getIntervals().isEmpty()) {
+                    profiles.add(profile);
+                    logger.debug("Extracted profile: POD={}, intervals={}", 
+                        profile.getPodId(), profile.getIntervals().size());
+                }
+            }
         }
 
-        logger.debug("Found {} message elements", messageNodes.getLength());
-
-        for (int i = 0; i < messageNodes.getLength(); i++) {
-            Element messageEl = (Element) messageNodes.item(i);
-            LoadProfileData profile = extractProfile(messageEl, messageUuid);
-            if (profile != null && !profile.getIntervals().isEmpty()) {
-                profiles.add(profile);
+        // Strategy 2: If no profiles found, try direct UtilitiesTimeSeries extraction
+        if (profiles.isEmpty()) {
+            logger.debug("No profiles from notification messages, trying direct TimeSeries extraction");
+            NodeList timeSeriesNodes = doc.getElementsByTagName("UtilitiesTimeSeries");
+            if (timeSeriesNodes.getLength() == 0) {
+                timeSeriesNodes = doc.getElementsByTagNameNS(NS_SAP_GLOBAL, "UtilitiesTimeSeries");
+            }
+            
+            for (int i = 0; i < timeSeriesNodes.getLength(); i++) {
+                Element tsEl = (Element) timeSeriesNodes.item(i);
+                LoadProfileData profile = extractProfileFromTimeSeries(tsEl, messageUuid);
+                if (profile != null && !profile.getIntervals().isEmpty()) {
+                    profiles.add(profile);
+                }
             }
         }
 
@@ -87,59 +102,96 @@ public class LoadProfileDataExtractor {
     }
 
     /**
+     * Find notification message nodes with various namespace combinations
+     */
+    private NodeList findMessageNodes(Document doc) {
+        // Try different element names and namespace combinations
+        String[] elementNames = {
+            "UtilitiesTimeSeriesERPItemNotificationMessage",
+            "UtilitiesTimeSeriesERPItemBulkNotificationMessage"
+        };
+        
+        for (String elementName : elementNames) {
+            // Try with SAP Global namespace
+            NodeList nodes = doc.getElementsByTagNameNS(NS_SAP_GLOBAL, elementName);
+            if (nodes.getLength() > 0) {
+                logger.debug("Found {} elements with name {} (NS: SAP Global)", nodes.getLength(), elementName);
+                return nodes;
+            }
+            
+            // Try without namespace
+            nodes = doc.getElementsByTagName(elementName);
+            if (nodes.getLength() > 0) {
+                logger.debug("Found {} elements with name {} (no NS)", nodes.getLength(), elementName);
+                return nodes;
+            }
+        }
+        
+        // Return empty NodeList
+        return doc.getElementsByTagName("__NONEXISTENT__");
+    }
+
+    /**
      * Extract message UUID from XML header
      */
     private String extractMessageUuid(Document doc) {
-        // Try BusinessScope/ID
-        NodeList uuidNodes = doc.getElementsByTagName("UUID");
-        if (uuidNodes.getLength() > 0) {
-            return uuidNodes.item(0).getTextContent().trim();
-        }
-
-        // Try MessageHeader/UUID
-        NodeList headerNodes = doc.getElementsByTagName("MessageHeader");
-        if (headerNodes.getLength() > 0) {
-            Element header = (Element) headerNodes.item(0);
-            NodeList idNodes = header.getElementsByTagName("UUID");
-            if (idNodes.getLength() > 0) {
-                return idNodes.item(0).getTextContent().trim();
+        // Try different locations for UUID
+        String[] uuidTags = {"UUID", "uuid", "MessageID", "messageId"};
+        
+        for (String tag : uuidTags) {
+            NodeList uuidNodes = doc.getElementsByTagName(tag);
+            if (uuidNodes.getLength() > 0) {
+                String uuid = uuidNodes.item(0).getTextContent().trim();
+                if (uuid != null && !uuid.isEmpty()) {
+                    return uuid;
+                }
             }
         }
 
         // Generate new UUID if not found
-        return UUID.randomUUID().toString().toUpperCase();
+        String generated = UUID.randomUUID().toString().toUpperCase();
+        logger.debug("No UUID found in XML, generated: {}", generated);
+        return generated;
     }
 
     /**
-     * Extract single profile from message element
+     * Extract profile from UtilitiesTimeSeriesERPItemNotificationMessage element
      */
-    private LoadProfileData extractProfile(Element messageEl, String messageUuid) {
+    private LoadProfileData extractProfileFromNotificationMessage(Element messageEl, String messageUuid) {
+        // Find UtilitiesTimeSeries within this message
+        NodeList tsNodes = messageEl.getElementsByTagName("UtilitiesTimeSeries");
+        if (tsNodes.getLength() == 0) {
+            tsNodes = messageEl.getElementsByTagNameNS(NS_SAP_GLOBAL, "UtilitiesTimeSeries");
+        }
+        
+        if (tsNodes.getLength() == 0) {
+            logger.warn("No UtilitiesTimeSeries found in notification message");
+            return null;
+        }
+        
+        Element tsEl = (Element) tsNodes.item(0);
+        return extractProfileFromTimeSeries(tsEl, messageUuid);
+    }
+
+    /**
+     * Extract profile from UtilitiesTimeSeries element
+     */
+    private LoadProfileData extractProfileFromTimeSeries(Element tsEl, String messageUuid) {
         LoadProfileData profile = new LoadProfileData();
         profile.setMessageUuid(messageUuid);
 
         try {
-            // Extract POD ID (UtilitiesDeviceID or MeteringPointID)
-            String podId = getElementText(messageEl, "UtilitiesDeviceID");
-            if (podId == null || podId.isEmpty()) {
-                podId = getElementText(messageEl, "MeteringPointID");
-            }
-            if (podId == null || podId.isEmpty()) {
-                podId = getElementText(messageEl, "ServicePointChannelID");
-            }
+            // Extract POD ID from UtilitiesMeasurementTaskAssignmentRole
+            String podId = extractPodId(tsEl);
             profile.setPodId(podId);
 
-            // Extract OBIS code / Data Class
-            String obisCode = getElementText(messageEl, "UtilitiesMeasurementTaskTypeCode");
-            if (obisCode == null || obisCode.isEmpty()) {
-                obisCode = getElementText(messageEl, "MeasuredQuantityTypeCode");
-            }
+            // Extract OBIS code
+            String obisCode = extractObisCode(tsEl);
             profile.setObisCode(obisCode);
 
-            // Extract intervals
-            NodeList itemNodes = messageEl.getElementsByTagName("UtilitiesTimeSeriesItem");
-            if (itemNodes.getLength() == 0) {
-                itemNodes = messageEl.getElementsByTagName("IntervalReading");
-            }
+            // Extract intervals from Item elements
+            NodeList itemNodes = tsEl.getElementsByTagName("Item");
+            logger.debug("Found {} Item elements", itemNodes.getLength());
 
             for (int i = 0; i < itemNodes.getLength(); i++) {
                 Element itemEl = (Element) itemNodes.item(i);
@@ -153,7 +205,7 @@ public class LoadProfileDataExtractor {
                 podId, obisCode, profile.getIntervals().size());
 
         } catch (Exception e) {
-            logger.error("Error extracting profile", e);
+            logger.error("Error extracting profile from TimeSeries", e);
             return null;
         }
 
@@ -161,50 +213,108 @@ public class LoadProfileDataExtractor {
     }
 
     /**
-     * Extract single interval from item element
+     * Extract POD ID from various possible locations
+     */
+    private String extractPodId(Element parent) {
+        // Priority order of tags to check
+        String[] podTags = {
+            "UtilitiesPointOfDeliveryPartyID",      // Found in test.xml
+            "UtilitiesDeviceID",
+            "MeteringPointID", 
+            "ServicePointChannelID",
+            "POD_ID",
+            "PodId"
+        };
+        
+        for (String tag : podTags) {
+            String value = getElementTextDeep(parent, tag);
+            if (value != null && !value.isEmpty()) {
+                logger.debug("Found POD ID using tag {}: {}", tag, value);
+                return value;
+            }
+        }
+        
+        logger.warn("No POD ID found in XML");
+        return "UNKNOWN";
+    }
+
+    /**
+     * Extract OBIS code from various possible locations
+     */
+    private String extractObisCode(Element parent) {
+        // Priority order of tags to check
+        String[] obisTags = {
+            "UtilitiesObjectIdentificationSystemCodeText",  // Found in test.xml
+            "UtilitiesMeasurementTaskTypeCode",
+            "MeasuredQuantityTypeCode",
+            "ObisCode",
+            "OBIS"
+        };
+        
+        for (String tag : obisTags) {
+            String value = getElementTextDeep(parent, tag);
+            if (value != null && !value.isEmpty()) {
+                logger.debug("Found OBIS code using tag {}: {}", tag, value);
+                return value;
+            }
+        }
+        
+        logger.warn("No OBIS code found in XML");
+        return "UNKNOWN";
+    }
+
+    /**
+     * Extract single interval from Item element
      */
     private IntervalData extractInterval(Element itemEl) {
         IntervalData interval = new IntervalData();
 
         try {
-            // Extract start time
-            String startTimeStr = getElementText(itemEl, "StartDateTime");
+            // Extract start time - try multiple tag names
+            String startTimeStr = getElementText(itemEl, "UTCValidityStartDateTime");
+            if (startTimeStr == null || startTimeStr.isEmpty()) {
+                startTimeStr = getElementText(itemEl, "StartDateTime");
+            }
             if (startTimeStr == null || startTimeStr.isEmpty()) {
                 startTimeStr = getElementText(itemEl, "UtilitiesTimeSeriesItemDateTime");
             }
+            
             if (startTimeStr != null && !startTimeStr.isEmpty()) {
                 interval.setStartDateTime(parseDateTime(startTimeStr));
+            } else {
+                logger.warn("No start time found in Item element");
+                return null;
             }
 
-            // Extract value
-            String valueStr = getElementText(itemEl, "Quantity");
-            if (valueStr == null || valueStr.isEmpty()) {
-                valueStr = getElementText(itemEl, "UtilitiesQuantityValue");
-            }
-            if (valueStr == null || valueStr.isEmpty()) {
-                valueStr = getElementText(itemEl, "Value");
-            }
-            if (valueStr != null && !valueStr.isEmpty()) {
+            // Extract value from Quantity element
+            Element quantityEl = getFirstChildElement(itemEl, "Quantity");
+            if (quantityEl != null) {
+                String valueStr = quantityEl.getTextContent().trim();
                 try {
-                    interval.setValue(new BigDecimal(valueStr.trim()));
+                    interval.setValue(new BigDecimal(valueStr));
                 } catch (NumberFormatException e) {
-                    logger.warn("Invalid value: {}", valueStr);
+                    logger.warn("Invalid quantity value: {}", valueStr);
                     interval.setValue(BigDecimal.ZERO);
                 }
+                
+                // Extract unit from attribute
+                String unit = quantityEl.getAttribute("unitCode");
+                interval.setUnitCode(unit != null && !unit.isEmpty() ? unit : "KWH");
+            } else {
+                // Try direct Value element
+                String valueStr = getElementText(itemEl, "Value");
+                if (valueStr != null && !valueStr.isEmpty()) {
+                    try {
+                        interval.setValue(new BigDecimal(valueStr.trim()));
+                    } catch (NumberFormatException e) {
+                        interval.setValue(BigDecimal.ZERO);
+                    }
+                }
+                interval.setUnitCode("KWH");
             }
 
-            // Extract unit
-            String unit = getElementText(itemEl, "QuantityUnitCode");
-            if (unit == null || unit.isEmpty()) {
-                unit = getElementText(itemEl, "MeasureUnitCode");
-            }
-            interval.setUnitCode(unit != null ? unit : "KWH");
-
-            // Extract status
-            String status = getElementText(itemEl, "UtilitiesTimeSeriesItemStatusCode");
-            if (status == null || status.isEmpty()) {
-                status = getElementText(itemEl, "StatusRef");
-            }
+            // Extract status from ItemStatus
+            String status = extractStatus(itemEl);
             interval.setStatus(status != null ? status : "W");
 
         } catch (Exception e) {
@@ -216,19 +326,68 @@ public class LoadProfileDataExtractor {
     }
 
     /**
-     * Get text content of first matching child element
+     * Extract status from ItemStatus element
+     */
+    private String extractStatus(Element itemEl) {
+        // Try to find ItemStatus/UtilitiesTimeSeriesItemTypeCode
+        Element statusEl = getFirstChildElement(itemEl, "ItemStatus");
+        if (statusEl != null) {
+            String status = getElementText(statusEl, "UtilitiesTimeSeriesItemTypeCode");
+            if (status != null && !status.isEmpty()) {
+                return status;
+            }
+        }
+        
+        // Try direct StatusRef
+        String status = getElementText(itemEl, "StatusRef");
+        if (status != null && !status.isEmpty()) {
+            return status;
+        }
+        
+        return "W"; // Default status
+    }
+
+    /**
+     * Get first child element with given tag name
+     */
+    private Element getFirstChildElement(Element parent, String tagName) {
+        NodeList nodes = parent.getElementsByTagName(tagName);
+        if (nodes.getLength() > 0) {
+            return (Element) nodes.item(0);
+        }
+        return null;
+    }
+
+    /**
+     * Get text content of first matching child element (direct children only)
      */
     private String getElementText(Element parent, String tagName) {
-        // Try with namespace first
-        NodeList nodes = parent.getElementsByTagNameNS(NS_ZFA, tagName);
-        if (nodes.getLength() == 0) {
-            // Try without namespace
-            nodes = parent.getElementsByTagName(tagName);
-        }
+        NodeList nodes = parent.getElementsByTagName(tagName);
         if (nodes.getLength() > 0) {
             String text = nodes.item(0).getTextContent();
             return text != null ? text.trim() : null;
         }
+        return null;
+    }
+
+    /**
+     * Get text content searching deeply in the element tree
+     */
+    private String getElementTextDeep(Element parent, String tagName) {
+        // Try without namespace first
+        NodeList nodes = parent.getElementsByTagName(tagName);
+        if (nodes.getLength() > 0) {
+            String text = nodes.item(0).getTextContent();
+            return text != null ? text.trim() : null;
+        }
+        
+        // Try with SAP Global namespace
+        nodes = parent.getElementsByTagNameNS(NS_SAP_GLOBAL, tagName);
+        if (nodes.getLength() > 0) {
+            String text = nodes.item(0).getTextContent();
+            return text != null ? text.trim() : null;
+        }
+        
         return null;
     }
 
@@ -241,15 +400,17 @@ public class LoadProfileDataExtractor {
         }
 
         try {
-            // Remove timezone suffix if present for parsing
             String cleaned = dateTimeStr.trim();
             
-            // Try ISO format first
+            // Handle UTC format: 2025-11-23T22:00:00Z
+            if (cleaned.endsWith("Z")) {
+                return LocalDateTime.parse(cleaned, UTC_FORMATTER);
+            }
+            
+            // Handle ISO format with timezone offset
             if (cleaned.contains("T")) {
-                if (cleaned.endsWith("Z")) {
-                    return LocalDateTime.parse(cleaned, ZFA_FORMATTER);
-                } else if (cleaned.contains("+") || cleaned.lastIndexOf("-") > 10) {
-                    // Has timezone offset, parse as ISO
+                if (cleaned.contains("+") || cleaned.lastIndexOf("-") > 10) {
+                    // Has timezone offset, take first 19 chars
                     return LocalDateTime.parse(cleaned.substring(0, 19), 
                         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
                 } else {
@@ -262,7 +423,7 @@ public class LoadProfileDataExtractor {
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
         } catch (Exception e) {
-            logger.warn("Could not parse datetime: {}", dateTimeStr);
+            logger.warn("Could not parse datetime: {} - {}", dateTimeStr, e.getMessage());
             return null;
         }
     }

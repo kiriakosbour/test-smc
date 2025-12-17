@@ -7,17 +7,14 @@ import com.hedno.integration.processor.LoadProfileDataExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.*;
 import java.util.*;
 
-import oracle.jdbc.OracleConnection;
-
 /**
- * MDM Import Service v3.0
+ * MDM Import Service v3.1
  * 
  * Processes incoming MDM data and stores it for Artemis consumption:
  * - SMC_MDM_SCCURVES_HD: Master/header table
@@ -30,8 +27,11 @@ import oracle.jdbc.OracleConnection;
  * 
  * Note: No SAP integration - Artemis reads directly from database.
  * 
+ * Changes in v3.1:
+ * - Simplified CLOB handling using setCharacterStream (avoids OracleConnection dependency)
+ * 
  * @author HEDNO Integration Team
- * @version 3.0
+ * @version 3.1
  */
 public class MdmImportService {
 
@@ -293,8 +293,9 @@ public class MdmImportService {
             ps.setString(idx++, recipientId);
             ps.setTimestamp(idx++, sourceCreationDt);
             if (rawXml != null && !rawXml.isEmpty()) {
-                // Use Oracle native CLOB to avoid SerialClob incompatibility with WebLogic
-                setClobValue(conn, ps, idx++, rawXml);
+                // Use setCharacterStream - bypasses WebLogic's SerialClob issue
+                // This streams the data directly without creating a CLOB object
+                ps.setCharacterStream(idx++, new StringReader(rawXml), rawXml.length());
             } else {
                 ps.setNull(idx++, Types.CLOB);
             }
@@ -308,30 +309,6 @@ public class MdmImportService {
             }
         }
         throw new SQLException("Failed to get generated LOG_ID");
-    }
-
-    /**
-     * Set CLOB value avoiding WebLogic SerialClob issues.
-     * Uses setString for smaller values, Oracle native CLOB for larger ones.
-     */
-    private void setClobValue(Connection conn, PreparedStatement ps, int paramIndex, String value) throws SQLException {
-        // For values under 32KB, setString works directly without CLOB conversion issues
-        if (value.length() < 32000) {
-            ps.setString(paramIndex, value);
-            return;
-        }
-
-        // For larger values, try Oracle native CLOB
-        try {
-            Connection oracleConn = conn.unwrap(OracleConnection.class);
-            java.sql.Clob clob = oracleConn.createClob();
-            clob.setString(1, value);
-            ps.setClob(paramIndex, clob);
-        } catch (SQLException e) {
-            // Last resort fallback
-            log.debug("Could not unwrap Oracle connection: {}", e.getMessage());
-            ps.setCharacterStream(paramIndex, new StringReader(value), value.length());
-        }
     }
 
     /**

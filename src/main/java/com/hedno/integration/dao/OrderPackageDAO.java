@@ -2,8 +2,6 @@ package com.hedno.integration.dao;
 
 import com.hedno.integration.ConfigService;
 import com.hedno.integration.entity.OrderItem;
-// FIX: Removed bad import:
-// import com.hedno.integration.service.XMLBuilderService.IntervalData; 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
@@ -18,14 +16,12 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import oracle.jdbc.OracleConnection;
-
 /**
  * Data Access Object for SMC_ORDER_PACKAGES and SMC_ORDER_ITEMS tables.
  * Handles the creation of order items and the batching of order packages.
  *
  * @author HEDNO Integration Team
- * @version 1.0
+ * @version 1.1 - Simplified CLOB handling
  */
 public class OrderPackageDAO {
 
@@ -57,10 +53,6 @@ public class OrderPackageDAO {
     private static final String UPDATE_ITEM_STATUS_SQL = "UPDATE SMC_ORDER_ITEMS SET STATUS = ? WHERE PACKAGE_ID = ?";
 
     private DataSource dataSource;
-
-    // FIX: Removed the unused SELECT_INTERVALS_SQL and fetchIntervalDataForBloc
-    // method
-    // which caused the compilation error.
 
     public OrderPackageDAO() {
         initializeDataSource();
@@ -104,9 +96,7 @@ public class OrderPackageDAO {
     }
 
     // Stored Procedure call
-    private static final String CALL_ADD_ORDER_ITEM_SP = "{CALL SP_SMC_ADD_ORDER_ITEM(?, ?, ?, ?, ?, ?, ?)}"; // <-- Now
-                                                                                                              // 7
-                                                                                                              // parameters
+    private static final String CALL_ADD_ORDER_ITEM_SP = "{CALL SP_SMC_ADD_ORDER_ITEM(?, ?, ?, ?, ?, ?, ?)}";
 
     /**
      * Creates a new order item and assigns it to an open package
@@ -134,8 +124,9 @@ public class OrderPackageDAO {
             cs.setString(4, obisCode);
             cs.setString(5, podId);
             if (rawXml != null && !rawXml.isEmpty()) {
-                // Use Oracle native CLOB to avoid SerialClob incompatibility with WebLogic
-                setClobValue(conn, cs, 6, rawXml);
+                // Use setCharacterStream - bypasses WebLogic's SerialClob issue
+                // This streams the data directly without creating a CLOB object
+                cs.setCharacterStream(6, new StringReader(rawXml), rawXml.length());
             } else {
                 cs.setNull(6, Types.CLOB);
             }
@@ -143,7 +134,7 @@ public class OrderPackageDAO {
 
             cs.execute();
 
-            long packageId = cs.getLong(7); // <-- Index is now 7
+            long packageId = cs.getLong(7);
 
             conn.commit(); // Commit transaction
             logger.debug("Successfully added item for profil_bloc {} to package {}", profilBlocId, packageId);
@@ -151,32 +142,7 @@ public class OrderPackageDAO {
 
         } catch (SQLException e) {
             logger.error("Error calling SP_SMC_ADD_ORDER_ITEM for profil_bloc_id: {}", profilBlocId, e);
-            // Note: Connection should auto-rollback on close if not committed
             throw e; // Re-throw to inform the caller
-        }
-    }
-
-    /**
-     * Set CLOB value avoiding WebLogic SerialClob issues.
-     * Uses setString for smaller values, Oracle native CLOB for larger ones.
-     */
-    private void setClobValue(Connection conn, PreparedStatement ps, int paramIndex, String value) throws SQLException {
-        // For values under 32KB, setString works directly without CLOB conversion issues
-        if (value.length() < 32000) {
-            ps.setString(paramIndex, value);
-            return;
-        }
-
-        // For larger values, try Oracle native CLOB
-        try {
-            Connection oracleConn = conn.unwrap(OracleConnection.class);
-            java.sql.Clob clob = oracleConn.createClob();
-            clob.setString(1, value);
-            ps.setClob(paramIndex, clob);
-        } catch (SQLException e) {
-            // Last resort fallback
-            logger.debug("Could not unwrap Oracle connection: {}", e.getMessage());
-            ps.setCharacterStream(paramIndex, new StringReader(value), value.length());
         }
     }
 
