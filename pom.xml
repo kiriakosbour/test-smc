@@ -262,13 +262,22 @@
             <properties>
                 <env>dev</env>
                 <jndi.datasource.name>java:comp/env/jdbc/LoadProfileDB</jndi.datasource.name>
-                <jdbc.url>jdbc:oracle:thin:@localhost:1521:XE</jdbc.url>
-                <jdbc.username>LOAD_PROFILE</jdbc.username>
-                <jdbc.password>password</jdbc.password>
-                <sftp.host>127.0.0.1</sftp.host>
+                <jdbc.url>jdbc:oracle:thin:@orcdb-apps-qa-scan.deddie.gr:1521/deddiepr02</jdbc.url>
+                <jdbc.username>artemis</jdbc.username>
+                <jdbc.password>gUDQ6uP4iVoy3Eb8xiVk</jdbc.password>
+                <sftp.host>10.138.19.133</sftp.host>
                 <sftp.port>22</sftp.port>
-                <sftp.username>testuser</sftp.username>
-                <sftp.password>testpass</sftp.password>
+                <sftp.username>SFTP-HEDNO-TA</sftp.username>
+                <sftp.password>dG!2eSk@6b</sftp.password>
+
+                <sch.hours>0</sch.hours>
+                <sch.minutes>5</sch.minutes>
+                <sch.seconds>0</sch.seconds>
+
+                <sftp.fldr.readings>sftp/Export/Reading</sftp.fldr.readings>
+                <sftp.fldr.alarms>sftp/Export/Alarms</sftp.fldr.alarms>
+                <sftp.fldr.events>sftp/Export/Events</sftp.fldr.events>
+
                 <processor.interval.ms>60000</processor.interval.ms>
                 <processor.batch.size>10</processor.batch.size>
             </properties>
@@ -310,6 +319,15 @@
                 <sftp.port>22</sftp.port>
                 <sftp.username>SFTP-HEDNO-TA</sftp.username>
                 <sftp.password>dG!2eSk@6b</sftp.password>
+                
+                <sch.hours>0</sch.hours>
+                <sch.minutes>5</sch.minutes>
+                <sch.seconds>0</sch.seconds>
+
+                <sftp.fldr.readings>sftp/Export/Reading</sftp.fldr.readings>
+                <sftp.fldr.alarms>sftp/Export/Alarms</sftp.fldr.alarms>
+                <sftp.fldr.events>sftp/Export/Events</sftp.fldr.events>
+                                
                 <processor.interval.ms>60000</processor.interval.ms>
                 <processor.batch.size>10</processor.batch.size>
             </properties>
@@ -351,6 +369,15 @@
                 <sftp.port>22</sftp.port>
                 <sftp.username>SFTP-HEDNO-TA</sftp.username>
                 <sftp.password>dG!2eSk@6b</sftp.password>
+                
+                <sch.hours>0</sch.hours>
+                <sch.minutes>5</sch.minutes>
+                <sch.seconds>0</sch.seconds>
+
+                <sftp.fldr.readings>sftp/Export/Reading</sftp.fldr.readings>
+                <sftp.fldr.alarms>sftp/Export/Alarms</sftp.fldr.alarms>
+                <sftp.fldr.events>sftp/Export/Events</sftp.fldr.events>
+                                
                 <processor.interval.ms>60000</processor.interval.ms>
                 <processor.batch.size>10</processor.batch.size>
             </properties>
@@ -392,6 +419,15 @@
                 <sftp.port>22</sftp.port>
                 <sftp.username>itron_user</sftp.username>
                 <sftp.password>itron_pass</sftp.password>
+                
+                <sch.hours>0</sch.hours>
+                <sch.minutes>5</sch.minutes>
+                <sch.seconds>0</sch.seconds>
+
+                <sftp.fldr.readings>sftp/Export/Reading</sftp.fldr.readings>
+                <sftp.fldr.alarms>sftp/Export/Alarms</sftp.fldr.alarms>
+                <sftp.fldr.events>sftp/Export/Events</sftp.fldr.events>
+                                
                 <processor.interval.ms>300000</processor.interval.ms>
                 <processor.batch.size>50</processor.batch.size>
             </properties>
